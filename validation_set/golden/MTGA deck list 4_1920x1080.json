@@ -1,0 +1,34 @@
+{
+  "main": [
+    {"qty": 4, "name": "Lightning Bolt"},
+    {"qty": 4, "name": "Counterspell"},
+    {"qty": 4, "name": "Fatal Push"},
+    {"qty": 4, "name": "Path to Exile"},
+    {"qty": 4, "name": "Thoughtseize"},
+    {"qty": 4, "name": "Snapcaster Mage"},
+    {"qty": 4, "name": "Tarmogoyf"},
+    {"qty": 4, "name": "Dark Confidant"},
+    {"qty": 4, "name": "Liliana of the Veil"},
+    {"qty": 4, "name": "Jace, the Mind Sculptor"},
+    {"qty": 4, "name": "Fetch Land"},
+    {"qty": 4, "name": "Shock Land"},
+    {"qty": 4, "name": "Basic Land"},
+    {"qty": 4, "name": "Dual Land"},
+    {"qty": 4, "name": "Utility Land"}
+  ],
+  "side": [
+    {"qty": 3, "name": "Surgical Extraction"},
+    {"qty": 2, "name": "Damping Sphere"},
+    {"qty": 2, "name": "Collective Brutality"},
+    {"qty": 2, "name": "Nihil Spellbomb"},
+    {"qty": 2, "name": "Engineered Explosives"},
+    {"qty": 2, "name": "Ceremonious Rejection"},
+    {"qty": 2, "name": "Fulminator Mage"}
+  ],
+  "metadata": {
+    "format": "modern",
+    "source": "mtga",
+    "expected_main_total": 60,
+    "expected_side_total": 15
+  }
+}
