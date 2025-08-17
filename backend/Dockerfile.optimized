@@ -1,0 +1,56 @@
+# syntax=docker/dockerfile:1.7
+# Backend CPU, build rapide avec cache pip + modèles EasyOCR pré-téléchargés
+ARG PYTHON_VERSION=3.11
+FROM python:${PYTHON_VERSION}-slim-bookworm AS base
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    PIP_ROOT_USER_ACTION=ignore
+
+# Déps système minimales pour wheels (opencv-headless, pillow, psycopg, etc.)
+# Compatible ARM64 (M1/M2) et x86_64
+RUN apt-get update && apt-get install -y --no-install-recommends \
+      libglib2.0-0 libjpeg62-turbo libpng16-16 libtiff6 libopenjp2-7 \
+      libgl1 libgomp1 \
+      curl ca-certificates git build-essential \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 1) Installer requirements en profitant du cache pip (BuildKit requis)
+COPY requirements-dev-min.txt /app/requirements.txt
+
+# Torch CPU: index officiel pour roues précompilées (rapide, pas de compile)
+ARG TORCH_INDEX_URL="https://download.pytorch.org/whl/cpu"
+RUN --mount=type=cache,target=/root/.cache/pip \
+    python -m pip install -U pip wheel setuptools && \
+    python -m pip install --progress-bar off --index-url ${TORCH_INDEX_URL} \
+        torch torchvision torchaudio && \
+    python -m pip install --progress-bar off -r /app/requirements.txt
+
+# 2) Copier le code après l'install pour maximiser le cache
+COPY . /app
+
+# 3) Pré-télécharger les modèles EasyOCR au build (caché dans une couche)
+#    Cela évite le "first run" lent au démarrage des conteneurs.
+RUN python - <<'PY'
+import easyocr, os
+# Langues principales, adapte si besoin (ex: ['en','fr','de','es'])
+langs = os.environ.get("EASYOCR_LANGS","en").split(",")
+r = easyocr.Reader(langs, gpu=False, download_enabled=True)
+print("EasyOCR models preloaded for:", langs)
+PY
+
+# 4) Healthcheck + port + commande
+EXPOSE 8080
+HEALTHCHECK --interval=30s --timeout=5s --retries=5 CMD curl -fsS http://localhost:8080/health || exit 1
+
+# Variables par défaut (peuvent être surchargées par .env / compose)
+ENV OCR_MIN_CONF=0.62 \
+    ALWAYS_VERIFY_SCRYFALL=true \
+    FEATURE_TELEMETRY=false \
+    OTEL_SDK_DISABLED=true
+
+# 5) Lancement API
+CMD ["python","-m","uvicorn","app.main:app","--host","0.0.0.0","--port","8080"]

@@ -3,6 +3,7 @@ Export endpoints for Screen2Deck API.
 """
 
 from fastapi import APIRouter, HTTPException, Depends, status
+from pydantic import BaseModel
 from typing import Optional
 
 from ..models import NormalizedDeck

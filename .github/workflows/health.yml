@@ -1,0 +1,12 @@
+name: health
+on: [push, pull_request]
+jobs:
+  core:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: echo "JWT_SECRET_KEY=ci" > backend/.env.docker
+      - run: echo -e "DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d\nREDIS_URL=redis://redis:6379/0\nOCR_MIN_CONF=0.62\nALWAYS_VERIFY_SCRYFALL=true\nFEATURE_TELEMETRY=false\nOTEL_SDK_DISABLED=true" >> backend/.env.docker
+      - run: docker compose --profile core up -d --build redis postgres backend
+      - run: |
+          for i in {1..40}; do curl -sf http://localhost:8080/health && exit 0; sleep 3; done; exit 1

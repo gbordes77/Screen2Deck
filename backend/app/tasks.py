@@ -25,8 +25,8 @@ S = get_settings()
 # Initialize Celery
 celery_app = Celery(
     'screen2deck',
-    broker=S.REDIS_URL,
-    backend=S.REDIS_URL,
+    broker=str(S.REDIS_URL),
+    backend=str(S.REDIS_URL),
     include=['app.tasks']
 )
 
@@ -45,7 +45,7 @@ celery_app.conf.update(
 )
 
 # Redis client for job status
-redis_client = redis.from_url(S.REDIS_URL) if S.USE_REDIS else None
+redis_client = redis.from_url(str(S.REDIS_URL)) if S.USE_REDIS else None
 
 def update_job_status(job_id: str, status: str, progress: int = 0, result: Dict = None, error: str = None):
     """Update job status in Redis."""

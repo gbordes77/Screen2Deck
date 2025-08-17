@@ -1,0 +1,22 @@
+{
+  "format": "Modern",
+  "main": [
+    { "qty": 20, "name": "Mountain" },
+    { "qty": 4,  "name": "Monastery Swiftspear" },
+    { "qty": 4,  "name": "Ghitu Lavarunner" },
+    { "qty": 4,  "name": "Soul-Scar Mage" },
+    { "qty": 4,  "name": "Lightning Bolt" },
+    { "qty": 4,  "name": "Play with Fire" },
+    { "qty": 4,  "name": "Wizard's Lightning" },
+    { "qty": 4,  "name": "Lava Spike" },
+    { "qty": 4,  "name": "Rift Bolt" },
+    { "qty": 4,  "name": "Eidolon of the Great Revel" },
+    { "qty": 4,  "name": "Searing Blaze" }
+  ],
+  "side": [
+    { "qty": 4, "name": "Smash to Smithereens" },
+    { "qty": 3, "name": "Searing Blood" },
+    { "qty": 4, "name": "Roiling Vortex" },
+    { "qty": 4, "name": "Tormod's Crypt" }
+  ]
+}

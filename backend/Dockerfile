@@ -27,10 +27,11 @@ ENV PYTHONDONTWRITEBYTECODE=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
     TARGETARCH=${TARGETARCH}
 
-# Install system dependencies
+# Install system dependencies (including libmagic for python-magic)
 RUN apt-get update && apt-get install -y \
     build-essential \
     libgl1 \
+    libmagic1 \
     curl \
     && rm -rf /var/lib/apt/lists/*
 

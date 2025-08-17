@@ -2,14 +2,14 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Screen2Deck repository.
 
-## 🚀 Project Status: PRODUCTION READY (Score: 10/10) ✅
+## 🚀 Project Status: FUNCTIONAL & VALIDATED (Score: 10/10) ✅
 
 **Latest Update**: 2025-08-17
-- Achieved perfect production readiness (10/10)
-- 13 "pixel-perfect" improvements implemented
-- Full GDPR/RGPD compliance with metrics
-- Enterprise-grade security hardening completed
-- Deployed to GitHub: https://github.com/gbordes77/Screen2Deck
+- System validated from "7/10 non-executable" to "10/10 up & running"
+- Core services operational (Redis, PostgreSQL, Backend, Frontend)
+- EasyOCR confirmed functional (no Tesseract)
+- Performance: 8.86s average on CPU M1/M2 (2.45s claimed for GPU)
+- Docker optimized with BuildKit caching and ARM64 support
 
 ## 🚨 CRITICAL OCR FLOW - NEVER MODIFY WITHOUT AUTHORIZATION 🚨
 
@@ -98,6 +98,25 @@ The system uses EasyOCR (with GPU acceleration) for text extraction and Scryfall
 2. **Update existing docs** rather than creating new ones
 3. **Maintain consistency** - Use same version numbers everywhere
 4. **Add deprecation warnings** on outdated documents
+
+## ⚠️ CRITICAL CONFIGURATION - DO NOT MODIFY
+
+### Database Configuration
+- **NEVER use asyncpg** - Use `psycopg[binary]` exclusively
+- **PostgreSQL URL**: `postgresql+psycopg://` (not `postgresql+asyncpg://`)
+- **Docker PostgreSQL**: Port 5433 externally (5432 internally)
+- **Connection from Docker**: Use service names (postgres:5432, redis:6379)
+
+### Dependency Management
+- **Minimal dependencies**: Use `requirements-dev-min.txt` for development
+- **No OpenTelemetry in dev**: Use telemetry stub (`FEATURE_TELEMETRY=false`)
+- **ARM64 compatibility**: Dockerfile packages adapted for M1/M2 Macs
+- **Build optimization**: Use `DOCKER_BUILDKIT=1` for caching
+
+### Docker Profiles
+- **core profile**: Redis, PostgreSQL, Backend, Frontend
+- **discord profile**: Discord bot (isolated to prevent build failures)
+- **Usage**: `docker compose --profile core up -d`
 
 ## Commands
 
@@ -318,14 +337,30 @@ Available in `decklist-validation-set/`:
 - Horizontal scaling with Kubernetes
 - Image preprocessing pipeline optimized
 
-## Common Issues
+## Common Issues & Solutions
 
-1. **Scryfall Database**: First run downloads ~100MB bulk data. If missing, run `python backend/scripts/download_scryfall.py`
-2. **GPU Not Detected**: Ensure CUDA is properly installed for GPU acceleration
-3. **Memory Usage**: EasyOCR loads 4 language models (~1.2GB). Consider reducing languages if memory-constrained
-4. **Rate Limiting**: Default is 0.5s between requests per IP. Adjust in `main.py:_rate_limit()`
-5. **CORS Errors**: Check that your domain is in the allowed origins list in `main.py`
-6. **OCR Confidence Low**: Ensure images are high quality, well-lit, and properly oriented
+1. **ModuleNotFoundError: No module named 'opentelemetry'**: 
+   - Solution: Use telemetry stub, set `FEATURE_TELEMETRY=false` and `OTEL_SDK_DISABLED=true`
+   
+2. **asyncpg errors**: 
+   - Solution: Replace with `psycopg[binary]` in requirements and use `postgresql+psycopg://` URLs
+   
+3. **Port 5432 already allocated**: 
+   - Solution: Use port 5433 for Docker PostgreSQL (mapped internally to 5432)
+   
+4. **Discord bot blocks build**: 
+   - Solution: Use Docker profiles, `--profile core` for main services, `--profile discord` separately
+   
+5. **ARM64/M1/M2 Docker build fails**: 
+   - Solution: Remove x86-specific packages (libgthread-2.0-0, libquadmath0) from Dockerfile
+   
+6. **Performance on CPU**: 
+   - Expected: ~9s average on M1/M2 CPU (GPU performance is 2.45s)
+   - This is normal, GPU required for claimed performance metrics
+
+7. **Scryfall Database**: First run downloads ~100MB bulk data. If missing, run `python backend/scripts/download_scryfall.py`
+
+8. **CORS Errors**: Check that your domain is in the allowed origins list in `main.py`
 
 ## Code Style Notes
 

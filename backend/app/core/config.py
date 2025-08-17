@@ -4,7 +4,9 @@ Provides type-safe environment variable management.
 """
 
 from typing import List, Optional, Dict, Any
-from pydantic import BaseSettings, Field, validator, PostgresDsn, RedisDsn
+from pydantic import Field, field_validator
+from pydantic_settings import BaseSettings
+from pydantic.networks import PostgresDsn, RedisDsn
 from functools import lru_cache
 import json
 import secrets
@@ -81,7 +83,7 @@ class Settings(BaseSettings):
     FEATURE_GRAPHQL: bool = Field(False, env="FEATURE_GRAPHQL")
     FEATURE_ASYNC_PROCESSING: bool = Field(True, env="FEATURE_ASYNC_PROCESSING")
     
-    @validator("JWT_SECRET_KEY", pre=True)
+    @field_validator("JWT_SECRET_KEY", mode='before')
     def validate_jwt_secret(cls, v):
         """Ensure JWT secret is secure."""
         if v == "your-secret-key-min-32-chars-change-in-production":
@@ -89,7 +91,7 @@ class Settings(BaseSettings):
             return secrets.token_urlsafe(32)
         return v
     
-    @validator("CORS_ORIGINS", pre=True)
+    @field_validator("CORS_ORIGINS", mode='before')
     def parse_cors_origins(cls, v):
         """Parse CORS origins from JSON string."""
         if isinstance(v, str):
@@ -99,7 +101,7 @@ class Settings(BaseSettings):
                 return [v]
         return v
     
-    @validator("DATABASE_URL", pre=True)
+    @field_validator("DATABASE_URL", mode='before')
     def build_database_url(cls, v, values):
         """Build database URL if not provided."""
         if not v and values.get("APP_ENV") != "development":

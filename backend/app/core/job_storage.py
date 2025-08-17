@@ -26,7 +26,7 @@ class JobStorage:
             redis_url: Redis connection URL
             ttl_hours: Time-to-live for jobs in hours
         """
-        self.redis_url = redis_url or settings.REDIS_URL
+        self.redis_url = redis_url or str(settings.REDIS_URL)
         self.ttl = timedelta(hours=ttl_hours)
         self.redis_client = None
         self.key_prefix = "job:"

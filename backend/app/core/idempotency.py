@@ -17,7 +17,7 @@ from app.core.telemetry import logger
 from app.core.metrics import cache_hit_total, cache_miss_total
 
 # Redis client for idempotency
-redis_client = redis.from_url(settings.REDIS_URL) if settings.USE_REDIS else None
+redis_client = redis.from_url(str(settings.REDIS_URL)) if settings.USE_REDIS else None
 
 
 class IdempotencyKey:

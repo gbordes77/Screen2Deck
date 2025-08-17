@@ -1,24 +1,43 @@
-version: "3.9"
 services:
-  backend:
-    build: ./backend
-    env_file: ./.env
-    ports: ["8080:8080"]
-    volumes:
-      - ./backend/app/data:/app/app/data
-    depends_on: [redis]
-  webapp:
-    build: ./webapp
-    environment:
-      - NEXT_PUBLIC_API_BASE=http://localhost:8080
-    ports: ["3000:3000"]
-    depends_on: [backend]
   redis:
+    profiles: ["core"]
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports: ["6379:6379"]
   
+  postgres:
+    profiles: ["core"]
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: screen2deck
+    ports: ["5433:5432"]
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+  
+  backend:
+    profiles: ["core"]
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    env_file: ./backend/.env.docker
+    ports: ["8080:8080"]
+    volumes:
+      - ./backend/app:/app/app
+      - ./backend/app/data:/app/app/data
+    depends_on: [redis, postgres]
+  
+  webapp:
+    profiles: ["core"]
+    build: ./webapp
+    environment:
+      - NEXT_PUBLIC_API_BASE=http://backend:8080
+    ports: ["3000:3000"]
+    depends_on: [backend]
+  
   discord-bot:
+    profiles: ["discord"]
     build: ./discord
     env_file: ./discord/.env
     restart: unless-stopped
@@ -27,6 +46,9 @@ services:
       - ./discord/logs:/app/logs
     networks:
       - default
+
+volumes:
+  postgres_data:
 
 networks:
   default:

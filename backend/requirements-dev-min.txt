@@ -1,0 +1,31 @@
+fastapi
+uvicorn[standard]
+python-multipart
+pydantic~=2.6
+pydantic-settings
+python-dotenv
+httpx
+redis>=5
+prometheus-client
+
+# DB (synchrone, pas d'asyncpg)
+SQLAlchemy>=2
+alembic
+psycopg[binary]
+
+# OCR + parsing
+easyocr==1.7.1
+opencv-python-headless
+Pillow
+rapidfuzz
+
+# Auth
+passlib[bcrypt]
+python-jose[cryptography]
+
+# Utilitaires runtime
+python-magic
+aiohttp
+aiofiles
+tqdm
+celery

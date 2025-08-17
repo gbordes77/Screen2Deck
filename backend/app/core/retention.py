@@ -23,12 +23,12 @@ from app.core.metrics import retention_deleted_total, retention_cleanup_duration
 # Initialize Celery
 celery_app = Celery(
     'retention',
-    broker=settings.REDIS_URL,
-    backend=settings.REDIS_URL
+    broker=str(settings.REDIS_URL),
+    backend=str(settings.REDIS_URL)
 )
 
 # Redis client for cache cleanup
-redis_client = redis.from_url(settings.REDIS_URL)
+redis_client = redis.from_url(str(settings.REDIS_URL))
 
 # Retention periods from settings
 RETENTION_PERIODS = {

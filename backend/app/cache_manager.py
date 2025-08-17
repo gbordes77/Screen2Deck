@@ -26,7 +26,7 @@ class CacheManager:
         if self.enabled:
             try:
                 self.redis_client = redis.from_url(
-                    S.REDIS_URL,
+                    str(S.REDIS_URL),
                     decode_responses=False,  # Handle binary data
                     socket_connect_timeout=5,
                     socket_timeout=5

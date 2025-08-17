@@ -23,7 +23,7 @@ def get_redis_status() -> Dict[str, Any]:
         if not settings.USE_REDIS:
             return {"enabled": False, "status": "disabled"}
         
-        client = redis.from_url(settings.REDIS_URL)
+        client = redis.from_url(str(settings.REDIS_URL))
         client.ping()
         info = client.info()
         

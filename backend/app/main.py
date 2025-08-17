@@ -107,8 +107,8 @@ app.add_middleware(
 # Include routers
 app.include_router(health.router, tags=["health"])
 app.include_router(metrics.router, tags=["metrics"])
-app.include_router(auth_router.router, prefix="/api/auth", tags=["auth"])
-app.include_router(export_router.router, prefix="/api/export", tags=["export"])
+app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
+app.include_router(export_router, prefix="/api/export", tags=["export"])
 
 
 @app.post(
