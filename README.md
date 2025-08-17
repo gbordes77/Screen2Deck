@@ -284,34 +284,44 @@ Current production metrics:
 
 ### 🔐 Immediate Setup (Day 1)
 
-1. **Security Configuration**
+1. **Navigate to Project**
    ```bash
-   # Change JWT secret in .env
-   python -c "import secrets; print(secrets.token_urlsafe(32))"
-   # Update JWT_SECRET_KEY in backend/.env
+   cd /Volumes/DataDisk/_Projects/Screen2Deck/backend
    ```
 
-2. **Database Setup**
+2. **Security Configuration**
    ```bash
-   # Install and configure PostgreSQL
-   sudo apt install postgresql
+   # Generate new JWT secret
+   python -c "import secrets; print(secrets.token_urlsafe(32))"
+   # Update JWT_SECRET_KEY in .env file
+   nano .env
+   ```
+
+3. **Database Setup**
+   ```bash
+   # Install and configure PostgreSQL (if not installed)
+   brew install postgresql  # macOS
+   brew services start postgresql
    createdb screen2deck
    
-   # Install and start Redis
-   sudo apt install redis-server
-   redis-server
+   # Install and start Redis (if not installed)
+   brew install redis  # macOS
+   brew services start redis
    ```
 
-3. **Install Dependencies**
+4. **Install Dependencies**
    ```bash
-   cd backend
+   # Already in backend directory
+   python3 -m venv venv
+   source venv/bin/activate
    pip install -r requirements.txt
    ```
 
-4. **Launch Application**
+5. **Launch Application**
    ```bash
    python -m app.main
    # API will be available at http://localhost:8080
+   # Check docs at http://localhost:8080/docs
    ```
 
 ### 📋 Week 1 Priorities
