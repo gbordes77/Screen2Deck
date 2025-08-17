@@ -30,6 +30,19 @@ class Settings:
     # Redis (optionnel)
     USE_REDIS: bool = os.getenv("USE_REDIS","false").lower()=="true"
     REDIS_URL: str = os.getenv("REDIS_URL","redis://localhost:6379/0")
+    
+    # GDPR & Data Retention
+    GDPR_ENABLED: bool = os.getenv("GDPR_ENABLED", "true").lower() == "true"
+    DATA_RETENTION_IMAGES_HOURS: int = int(os.getenv("DATA_RETENTION_IMAGES_HOURS", 24))
+    DATA_RETENTION_JOBS_HOURS: int = int(os.getenv("DATA_RETENTION_JOBS_HOURS", 1))
+    DATA_RETENTION_HASHES_DAYS: int = int(os.getenv("DATA_RETENTION_HASHES_DAYS", 7))
+    DATA_RETENTION_LOGS_DAYS: int = int(os.getenv("DATA_RETENTION_LOGS_DAYS", 7))
+    DATA_RETENTION_METRICS_DAYS: int = int(os.getenv("DATA_RETENTION_METRICS_DAYS", 30))
+    
+    # Privacy Settings
+    ENABLE_ANALYTICS: bool = os.getenv("ENABLE_ANALYTICS", "false").lower() == "true"
+    ENABLE_TRACKING: bool = os.getenv("ENABLE_TRACKING", "false").lower() == "true"
+    REQUIRE_CONSENT: bool = os.getenv("REQUIRE_CONSENT", "true").lower() == "true"
 
 @lru_cache
 def get_settings():

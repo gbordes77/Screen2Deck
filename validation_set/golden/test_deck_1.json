@@ -1,0 +1,27 @@
+{
+  "name": "Test Deck 1 - UR Control",
+  "format": "Modern",
+  "total": 75,
+  "mainboard": [
+    {"qty": 4, "name": "Lightning Bolt"},
+    {"qty": 4, "name": "Counterspell"},
+    {"qty": 3, "name": "Snapcaster Mage"},
+    {"qty": 2, "name": "Force of Will"},
+    {"qty": 24, "name": "Island"},
+    {"qty": 10, "name": "Mountain"},
+    {"qty": 4, "name": "Steam Vents"},
+    {"qty": 4, "name": "Scalding Tarn"},
+    {"qty": 2, "name": "Fiery Islet"},
+    {"qty": 1, "name": "Mystic Sanctuary"},
+    {"qty": 2, "name": "Brainstorm"}
+  ],
+  "sideboard": [
+    {"qty": 3, "name": "Blood Moon"},
+    {"qty": 2, "name": "Surgical Extraction"},
+    {"qty": 2, "name": "Flusterstorm"},
+    {"qty": 2, "name": "Pyroblast"},
+    {"qty": 2, "name": "Engineered Explosives"},
+    {"qty": 2, "name": "Mystical Dispute"},
+    {"qty": 2, "name": "Abrade"}
+  ]
+}

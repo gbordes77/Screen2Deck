@@ -17,3 +17,18 @@ services:
     image: redis:7-alpine
     command: ["redis-server", "--save", "", "--appendonly", "no"]
     ports: ["6379:6379"]
+  
+  discord-bot:
+    build: ./discord
+    env_file: ./discord/.env
+    restart: unless-stopped
+    depends_on: [backend]
+    volumes:
+      - ./discord/logs:/app/logs
+    networks:
+      - default
+
+networks:
+  default:
+    name: screen2deck
+    driver: bridge

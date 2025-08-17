@@ -1,0 +1,35 @@
+{
+  "name": "@screen2deck/discord-bot",
+  "version": "2.0.0",
+  "description": "Discord bot for Screen2Deck with slash commands for deck import/export",
+  "main": "dist/index.js",
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "test": "jest",
+    "test:parity": "jest tests/parity.test.ts",
+    "deploy-commands": "tsx scripts/deploy-commands.ts",
+    "register": "tsx scripts/register-bot.ts"
+  },
+  "dependencies": {
+    "discord.js": "^14.14.1",
+    "@discordjs/rest": "^2.2.0",
+    "axios": "^1.6.5",
+    "dotenv": "^16.3.1",
+    "sharp": "^0.33.2",
+    "winston": "^3.11.0",
+    "node-cache": "^5.1.2"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/jest": "^29.5.11",
+    "jest": "^29.7.0",
+    "ts-jest": "^29.1.1",
+    "tsx": "^4.7.0",
+    "typescript": "^5.3.3"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
