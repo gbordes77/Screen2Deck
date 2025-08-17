@@ -1,23 +1,29 @@
-# Screen2Deck API Documentation
+# Screen2Deck API Documentation v2.0
 
-## Base URL
+## 🌐 Base URL
 ```
 Production: https://api.screen2deck.com
 Development: http://localhost:8080
 ```
 
-## Authentication
+## 📚 API Documentation
+- **OpenAPI/Swagger**: `/docs`
+- **ReDoc**: `/redoc`
+- **OpenAPI Schema**: `/openapi.json`
 
-Screen2Deck uses JWT Bearer tokens for authentication. Some endpoints also support API keys.
+## 🔐 Authentication
 
-### Get Access Token
+Screen2Deck uses JWT Bearer tokens and API keys for authentication.
+
+### Register New User
 
 ```http
-POST /api/auth/token
+POST /api/auth/register
 Content-Type: application/json
 
 {
   "username": "string",
+  "email": "user@example.com",
   "password": "string"
 }
 ```
@@ -25,9 +31,29 @@ Content-Type: application/json
 **Response:**
 ```json
 {
+  "id": "user-123",
+  "username": "string",
+  "email": "user@example.com",
+  "created_at": "2024-01-01T00:00:00Z"
+}
+```
+
+### Login
+
+```http
+POST /api/auth/login
+Content-Type: application/x-www-form-urlencoded
+
+grant_type=password&username=demo&password=demo123
+```
+
+**Response:**
+```json
+{
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
   "token_type": "bearer",
-  "expires_in": 1800
+  "expires_in": 1800,
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
@@ -36,242 +62,36 @@ Content-Type: application/json
 ```http
 POST /api/auth/refresh
 Content-Type: application/json
-Authorization: Bearer <refresh_token>
-```
 
-**Response:**
-```json
 {
-  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "token_type": "bearer",
-  "expires_in": 1800
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
 }
 ```
 
-### Using Authentication
+### Generate API Key
 
-Include the token in the Authorization header:
 ```http
+POST /api/auth/api-key
+Content-Type: application/json
 Authorization: Bearer <access_token>
-```
-
-Or use an API key:
-```http
-X-API-Key: s2d_your_api_key_here
-```
-
-## Core Endpoints
-
-### Upload Image for OCR
-
-```http
-POST /api/ocr/upload
-Content-Type: multipart/form-data
-
-file: <image_file>
-```
-
-**Parameters:**
-- `file` (required): Image file (JPEG, PNG, WebP)
-- Maximum file size: 10MB
-
-**Response:**
-```json
-{
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "status": "processing",
-  "message": "Image uploaded successfully",
-  "estimatedTime": 2
-}
-```
-
-**Status Codes:**
-- `200 OK`: Upload successful
-- `400 Bad Request`: Invalid file format
-- `413 Payload Too Large`: File exceeds size limit
-- `429 Too Many Requests`: Rate limit exceeded
-
-### Get OCR Status
-
-```http
-GET /api/ocr/status/{job_id}
-```
-
-**Parameters:**
-- `job_id` (required): Job UUID from upload response
-
-**Response:**
-```json
-{
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "completed",
-  "progress": 100,
-  "result": {
-    "raw": [
-      {"qty": 4, "name": "Lightning Bolt", "confidence": 0.95},
-      {"qty": 4, "name": "Counterspell", "confidence": 0.92}
-    ],
-    "normalized": {
-      "main": [
-        {
-          "qty": 4,
-          "name": "Lightning Bolt",
-          "scryfall_id": "a57af4df-566c-4c65-9cfe-31a96f8e4e3f",
-          "set": "2xm",
-          "collector_number": "129"
-        }
-      ],
-      "side": []
-    },
-    "errors": [],
-    "warnings": ["Card 'Unknown Card' not found in database"]
-  },
-  "createdAt": "2024-01-20T10:30:00Z",
-  "completedAt": "2024-01-20T10:30:02Z"
-}
-```
-
-**States:**
-- `pending`: Job queued
-- `processing`: OCR in progress
-- `validating`: Validating cards against Scryfall
-- `completed`: Successfully processed
-- `failed`: Processing failed
-
-### Export Deck
-
-```http
-POST /api/export/{format}
-Content-Type: application/json
 
 {
-  "main": [
-    {"qty": 4, "name": "Lightning Bolt", "scryfall_id": "..."}
-  ],
-  "side": [
-    {"qty": 2, "name": "Pyroblast", "scryfall_id": "..."}
-  ]
-}
-```
-
-**Formats:**
-- `mtga`: Magic: The Gathering Arena
-- `moxfield`: Moxfield
-- `archidekt`: Archidekt
-- `tappedout`: TappedOut
-- `json`: Raw JSON format
-
-**Response (MTGA example):**
-```
-Deck
-4 Lightning Bolt (2XM) 129
-4 Counterspell (MH2) 267
-
-Sideboard
-2 Pyroblast (ICE) 213
-```
-
-### Validate Cards
-
-```http
-POST /api/cards/validate
-Content-Type: application/json
-
-{
-  "cards": [
-    "Lightning Bolt",
-    "Counterspell",
-    "Invalid Card Name"
-  ]
+  "name": "My API Key",
+  "permissions": ["ocr:read", "ocr:write", "export:read"]
 }
 ```
 
 **Response:**
 ```json
 {
-  "valid": [
-    {
-      "name": "Lightning Bolt",
-      "scryfall_id": "a57af4df-566c-4c65-9cfe-31a96f8e4e3f",
-      "oracle_text": "Lightning Bolt deals 3 damage to any target.",
-      "mana_cost": "{R}",
-      "type_line": "Instant"
-    }
-  ],
-  "invalid": ["Invalid Card Name"],
-  "suggestions": {
-    "Invalid Card Name": ["Valid Card Name", "Another Valid Card"]
-  }
+  "key": "s2d_abc123...",
+  "name": "My API Key",
+  "created_at": "2024-01-01T00:00:00Z",
+  "permissions": ["ocr:read", "ocr:write", "export:read"]
 }
 ```
 
-### Search Cards
-
-```http
-GET /api/cards/search?q={query}&limit={limit}
-```
-
-**Parameters:**
-- `q` (required): Search query
-- `limit` (optional): Maximum results (default: 10, max: 100)
-- `fuzzy` (optional): Enable fuzzy matching (default: true)
-
-**Response:**
-```json
-{
-  "results": [
-    {
-      "name": "Lightning Bolt",
-      "scryfall_id": "a57af4df-566c-4c65-9cfe-31a96f8e4e3f",
-      "image_uri": "https://cards.scryfall.io/...",
-      "prices": {
-        "usd": "1.50",
-        "eur": "1.20"
-      }
-    }
-  ],
-  "total": 15,
-  "has_more": true
-}
-```
-
-## WebSocket API
-
-### Connect to Job Updates
-
-```javascript
-const ws = new WebSocket('ws://localhost:8080/ws/{job_id}?token={jwt_token}');
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log('Status:', data.state);
-  console.log('Progress:', data.progress);
-};
-
-// Send commands
-ws.send('ping');  // Keepalive
-ws.send('status'); // Request current status
-```
-
-**Message Format:**
-```json
-{
-  "type": "update",
-  "jobId": "550e8400-e29b-41d4-a716-446655440000",
-  "state": "processing",
-  "progress": 45,
-  "message": "Analyzing image..."
-}
-```
-
-**Message Types:**
-- `update`: Status update
-- `progress`: Progress percentage
-- `complete`: Job completed
-- `error`: Error occurred
-- `pong`: Response to ping
-
-## Health & Monitoring
+## 🏥 Health & Monitoring
 
 ### Health Check
 
@@ -283,305 +103,324 @@ GET /health
 ```json
 {
   "status": "healthy",
-  "version": "1.0.0",
-  "services": {
-    "database": "connected",
-    "redis": "connected",
-    "celery": "running"
-  },
-  "uptime": 3600
+  "timestamp": 1704067200,
+  "version": "2.0.0"
 }
 ```
 
-### Metrics (Prometheus Format)
+### Detailed Health
+
+```http
+GET /health/detailed
+```
+
+**Response:**
+```json
+{
+  "status": "healthy",
+  "version": "2.0.0",
+  "environment": "production",
+  "system": {
+    "cpu_percent": 25.5,
+    "memory_percent": 45.2,
+    "memory_used_gb": 3.6,
+    "disk_percent": 60.0
+  },
+  "jobs": {
+    "total": 1523,
+    "queued": 5,
+    "processing": 2,
+    "completed": 1500,
+    "failed": 16
+  },
+  "cache": {
+    "total_cards": 15234,
+    "active_cards": 14567,
+    "total_hits": 45678,
+    "db_size_mb": 125.4
+  }
+}
+```
+
+### Prometheus Metrics
 
 ```http
 GET /metrics
 ```
 
-**Response:**
-```
-# HELP http_requests_total Total HTTP requests
-# TYPE http_requests_total counter
-http_requests_total{method="GET",path="/api/ocr/status",status="200"} 1234
+Returns metrics in Prometheus format:
+- `screen2deck_ocr_requests_total`
+- `screen2deck_ocr_duration_seconds`
+- `screen2deck_active_jobs`
+- `screen2deck_cache_hits_total`
+- `screen2deck_export_requests_total`
+- `screen2deck_errors_total`
 
-# HELP ocr_processing_duration_seconds OCR processing duration
-# TYPE ocr_processing_duration_seconds histogram
-ocr_processing_duration_seconds_bucket{le="1.0"} 456
-ocr_processing_duration_seconds_bucket{le="2.0"} 789
-```
+## 📸 OCR Endpoints
 
-## Rate Limiting
+### Upload Image
 
-Default rate limits:
-- **Anonymous**: 10 requests/minute
-- **Authenticated**: 30 requests/minute
-- **API Key**: 100 requests/minute
-
-Rate limit headers:
 ```http
-X-RateLimit-Limit: 30
-X-RateLimit-Remaining: 25
-X-RateLimit-Reset: 1642684800
+POST /api/ocr/upload
+Content-Type: multipart/form-data
+Authorization: Bearer <token> (optional for public endpoint)
+
+file: <image_file>
 ```
 
-## Error Responses
+**Features:**
+- **Idempotency**: Same image returns cached result via SHA256 hash
+- **Validation**: Comprehensive image validation and sanitization
+- **Rate Limiting**: 10 requests/minute for unauthenticated, 30 for authenticated
+- **Supported Formats**: JPEG, PNG, WebP, GIF, BMP, TIFF
+- **Max Size**: 10MB
+- **Max Dimensions**: 4096x4096 pixels
 
-### Standard Error Format
-
+**Response:**
 ```json
 {
-  "error": {
-    "code": "VALIDATION_ERROR",
-    "message": "Invalid input provided",
-    "details": {
-      "field": "file",
-      "reason": "File type not supported"
-    }
-  },
-  "timestamp": "2024-01-20T10:30:00Z",
-  "path": "/api/ocr/upload",
-  "request_id": "req_123456"
+  "jobId": "550e8400-e29b-41d4-a716-446655440000",
+  "cached": false
 }
 ```
 
-### Error Codes
+### Get Job Status
 
-| Code | Description | HTTP Status |
-|------|-------------|-------------|
-| `VALIDATION_ERROR` | Invalid input | 400 |
-| `AUTHENTICATION_ERROR` | Invalid credentials | 401 |
-| `PERMISSION_DENIED` | Insufficient permissions | 403 |
-| `NOT_FOUND` | Resource not found | 404 |
-| `RATE_LIMIT_EXCEEDED` | Too many requests | 429 |
-| `INTERNAL_ERROR` | Server error | 500 |
-| `SERVICE_UNAVAILABLE` | Service down | 503 |
-
-## SDK Examples
-
-### Python
-
-```python
-import requests
-from typing import Dict, List
-
-class Screen2DeckClient:
-    def __init__(self, base_url: str = "http://localhost:8080"):
-        self.base_url = base_url
-        self.session = requests.Session()
-    
-    def authenticate(self, username: str, password: str):
-        response = self.session.post(
-            f"{self.base_url}/api/auth/token",
-            json={"username": username, "password": password}
-        )
-        token = response.json()["access_token"]
-        self.session.headers["Authorization"] = f"Bearer {token}"
-    
-    def upload_image(self, image_path: str) -> str:
-        with open(image_path, 'rb') as f:
-            response = self.session.post(
-                f"{self.base_url}/api/ocr/upload",
-                files={'file': f}
-            )
-        return response.json()["jobId"]
-    
-    def get_status(self, job_id: str) -> Dict:
-        response = self.session.get(
-            f"{self.base_url}/api/ocr/status/{job_id}"
-        )
-        return response.json()
-    
-    def export_deck(self, deck_data: Dict, format: str = "mtga") -> str:
-        response = self.session.post(
-            f"{self.base_url}/api/export/{format}",
-            json=deck_data
-        )
-        return response.text
-
-# Usage
-client = Screen2DeckClient()
-client.authenticate("user", "pass")
-job_id = client.upload_image("deck.jpg")
-status = client.get_status(job_id)
-if status["state"] == "completed":
-    deck_list = client.export_deck(status["result"]["normalized"])
-    print(deck_list)
+```http
+GET /api/ocr/status/{jobId}
+Authorization: Bearer <token> (optional)
 ```
 
-### JavaScript/TypeScript
-
-```typescript
-interface DeckCard {
-  qty: number;
-  name: string;
-  scryfall_id?: string;
-}
-
-interface DeckData {
-  main: DeckCard[];
-  side: DeckCard[];
-}
-
-class Screen2DeckClient {
-  private baseUrl: string;
-  private token?: string;
-
-  constructor(baseUrl: string = 'http://localhost:8080') {
-    this.baseUrl = baseUrl;
-  }
-
-  async authenticate(username: string, password: string): Promise<void> {
-    const response = await fetch(`${this.baseUrl}/api/auth/token`, {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ username, password })
-    });
-    const data = await response.json();
-    this.token = data.access_token;
-  }
-
-  async uploadImage(file: File): Promise<string> {
-    const formData = new FormData();
-    formData.append('file', file);
-    
-    const response = await fetch(`${this.baseUrl}/api/ocr/upload`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${this.token}`
-      },
-      body: formData
-    });
-    
-    const data = await response.json();
-    return data.jobId;
-  }
-
-  async getStatus(jobId: string): Promise<any> {
-    const response = await fetch(
-      `${this.baseUrl}/api/ocr/status/${jobId}`,
-      {
-        headers: {
-          'Authorization': `Bearer ${this.token}`
-        }
-      }
-    );
-    return response.json();
-  }
-
-  async exportDeck(deckData: DeckData, format: string = 'mtga'): Promise<string> {
-    const response = await fetch(
-      `${this.baseUrl}/api/export/${format}`,
-      {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${this.token}`,
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify(deckData)
-      }
-    );
-    return response.text();
-  }
-}
-
-// Usage
-const client = new Screen2DeckClient();
-await client.authenticate('user', 'pass');
-const jobId = await client.uploadImage(fileInput.files[0]);
-const status = await client.getStatus(jobId);
-if (status.state === 'completed') {
-  const deckList = await client.exportDeck(status.result.normalized);
-  console.log(deckList);
-}
-```
-
-## Postman Collection
-
-Import this collection to test the API:
-
+**Response:**
 ```json
 {
-  "info": {
-    "name": "Screen2Deck API",
-    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
-  },
-  "item": [
-    {
-      "name": "Authentication",
-      "item": [
+  "state": "completed",
+  "progress": 100,
+  "result": {
+    "jobId": "550e8400-e29b-41d4-a716-446655440000",
+    "raw": {
+      "spans": [
         {
-          "name": "Get Token",
-          "request": {
-            "method": "POST",
-            "header": [],
-            "body": {
-              "mode": "raw",
-              "raw": "{\"username\": \"test\", \"password\": \"test\"}",
-              "options": {
-                "raw": {
-                  "language": "json"
-                }
-              }
-            },
-            "url": {
-              "raw": "{{base_url}}/api/auth/token",
-              "host": ["{{base_url}}"],
-              "path": ["api", "auth", "token"]
-            }
-          }
+          "text": "4 Lightning Bolt",
+          "conf": 0.95
         }
-      ]
+      ],
+      "mean_conf": 0.92
     },
-    {
-      "name": "OCR",
-      "item": [
+    "parsed": {
+      "main": [
         {
-          "name": "Upload Image",
-          "request": {
-            "method": "POST",
-            "header": [
-              {
-                "key": "Authorization",
-                "value": "Bearer {{token}}"
-              }
-            ],
-            "body": {
-              "mode": "formdata",
-              "formdata": [
-                {
-                  "key": "file",
-                  "type": "file",
-                  "src": "/path/to/deck.jpg"
-                }
-              ]
-            },
-            "url": {
-              "raw": "{{base_url}}/api/ocr/upload",
-              "host": ["{{base_url}}"],
-              "path": ["api", "ocr", "upload"]
+          "qty": 4,
+          "name": "Lightning Bolt",
+          "candidates": [
+            {
+              "name": "Lightning Bolt",
+              "score": 1.0
             }
-          }
+          ]
         }
-      ]
+      ],
+      "side": []
+    },
+    "normalized": {
+      "main": [
+        {
+          "qty": 4,
+          "name": "Lightning Bolt",
+          "scryfall_id": "a57af4df-566c-4c65-9cfe-31a96f8e4e3f"
+        }
+      ],
+      "side": []
+    },
+    "timings_ms": {
+      "total": 1250
+    },
+    "traceId": "trace-123"
+  },
+  "error": null
+}
+```
+
+## 📤 Export Endpoints
+
+### Export Deck
+
+```http
+POST /api/export/{format}
+Content-Type: application/json
+Authorization: Bearer <token>
+
+{
+  "main": [
+    {
+      "qty": 4,
+      "name": "Lightning Bolt",
+      "scryfall_id": "a57af4df-566c-4c65-9cfe-31a96f8e4e3f"
     }
   ],
-  "variable": [
+  "side": []
+}
+```
+
+**Supported Formats:**
+- `mtga` - MTG Arena format
+- `moxfield` - Moxfield format
+- `archidekt` - Archidekt format
+- `tappedout` - TappedOut format
+- `json` - Raw JSON format
+
+**Response:**
+```json
+{
+  "text": "4 Lightning Bolt (2XM) 129\n...",
+  "format": "mtga"
+}
+```
+
+### List Export Formats
+
+```http
+GET /api/export/formats
+```
+
+**Response:**
+```json
+{
+  "formats": [
     {
-      "key": "base_url",
-      "value": "http://localhost:8080"
+      "id": "mtga",
+      "name": "MTG Arena",
+      "description": "MTG Arena deck format",
+      "example": "4 Lightning Bolt (2XM) 129"
     },
     {
-      "key": "token",
-      "value": ""
+      "id": "moxfield",
+      "name": "Moxfield",
+      "description": "Moxfield deck format",
+      "example": "4 Lightning Bolt"
     }
   ]
 }
 ```
 
-## OpenAPI Specification
+## 🔒 Security Features
 
-Access the interactive API documentation:
-- Swagger UI: http://localhost:8080/docs
-- ReDoc: http://localhost:8080/redoc
-- OpenAPI JSON: http://localhost:8080/openapi.json
+### Rate Limiting
+- **Unauthenticated**: 10 requests/minute with burst of 3
+- **Authenticated**: 30 requests/minute with burst of 10
+- **Per-IP tracking** with memory-efficient cleanup
+
+### Security Headers
+All responses include:
+- `X-Content-Type-Options: nosniff`
+- `X-Frame-Options: DENY`
+- `X-XSS-Protection: 1; mode=block`
+- `Strict-Transport-Security: max-age=31536000`
+- `Content-Security-Policy: default-src 'self'...`
+
+### Input Validation
+- **Image Validation**: MIME type, dimensions, file size
+- **Text Sanitization**: SQL injection and XSS prevention
+- **Job ID Validation**: UUID format verification
+- **Export Format Validation**: Whitelist of allowed formats
+
+## 🚨 Error Codes
+
+| Code | Description | HTTP Status |
+|------|-------------|-------------|
+| `BAD_IMAGE` | Invalid or corrupted image | 400 |
+| `VALIDATION_ERROR` | Input validation failed | 400 |
+| `UNAUTHORIZED` | Authentication required | 401 |
+| `FORBIDDEN` | Insufficient permissions | 403 |
+| `JOB_NOT_FOUND` | Job ID not found | 404 |
+| `RATE_LIMIT` | Rate limit exceeded | 429 |
+| `OCR_ERROR` | OCR processing failed | 500 |
+| `EXPORT_INVALID` | Export format not supported | 400 |
+
+## 📊 Response Headers
+
+All responses include:
+- `X-Request-ID`: Unique request identifier for tracing
+- `X-Rate-Limit-Limit`: Rate limit maximum
+- `X-Rate-Limit-Remaining`: Remaining requests
+- `X-Rate-Limit-Reset`: Reset timestamp
+
+## 🔄 WebSocket Support
+
+Connect to WebSocket for real-time updates:
+
+```javascript
+const ws = new WebSocket('wss://api.screen2deck.com/ws');
+
+ws.on('message', (data) => {
+  const update = JSON.parse(data);
+  console.log(`Job ${update.jobId}: ${update.progress}%`);
+});
+```
+
+## 📝 Example Workflows
+
+### Complete OCR Workflow
+
+```bash
+# 1. Login
+TOKEN=$(curl -X POST http://localhost:8080/api/auth/login \
+  -H "Content-Type: application/x-www-form-urlencoded" \
+  -d "grant_type=password&username=demo&password=demo123" \
+  | jq -r '.access_token')
+
+# 2. Upload image
+JOB_ID=$(curl -X POST http://localhost:8080/api/ocr/upload \
+  -H "Authorization: Bearer $TOKEN" \
+  -F "file=@deck.jpg" \
+  | jq -r '.jobId')
+
+# 3. Check status
+curl http://localhost:8080/api/ocr/status/$JOB_ID \
+  -H "Authorization: Bearer $TOKEN"
+
+# 4. Export to MTGA
+curl -X POST http://localhost:8080/api/export/mtga \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"main":[{"qty":4,"name":"Lightning Bolt"}],"side":[]}'
+```
+
+### Using API Key
+
+```bash
+# Generate API key
+API_KEY=$(curl -X POST http://localhost:8080/api/auth/api-key \
+  -H "Authorization: Bearer $TOKEN" \
+  -H "Content-Type: application/json" \
+  -d '{"name":"CLI Tool"}' \
+  | jq -r '.key')
+
+# Use API key for requests
+curl -X POST http://localhost:8080/api/ocr/upload \
+  -H "Authorization: Bearer $API_KEY" \
+  -F "file=@deck.jpg"
+```
+
+## 🧪 Testing
+
+Test the API using the Swagger UI at `/docs` or with curl commands above.
+
+For load testing:
+```bash
+cd backend
+locust -f tests/load_test.py --host=http://localhost:8080
+```
+
+## 📖 SDK Support
+
+Official SDKs coming soon:
+- Python SDK
+- JavaScript/TypeScript SDK
+- Go SDK
+
+## 🆘 Support
+
+- GitHub Issues: https://github.com/gbordes77/Screen2Deck/issues
+- API Status: https://status.screen2deck.com
+- Documentation: https://docs.screen2deck.com
