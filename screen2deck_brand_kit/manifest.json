@@ -1,0 +1,46 @@
+{
+  "name": "Screen2Deck",
+  "short_name": "S2D",
+  "description": "From screenshot to perfect decklist.",
+  "theme_color": "#6D28D9",
+  "background_color": "#0B1021",
+  "display": "standalone",
+  "icons": [
+    {
+      "src": "s2d_icon_1024.png",
+      "sizes": "1024x1024",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "s2d_icon_512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "s2d_icon_180.png",
+      "sizes": "180x180",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "s2d_icon_32.png",
+      "sizes": "32x32",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "s2d_icon_16.png",
+      "sizes": "16x16",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any"
+    }
+  ]
+}

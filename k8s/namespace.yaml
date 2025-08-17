@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: screen2deck
+  labels:
+    app: screen2deck
+    environment: production

@@ -1,0 +1,6 @@
+<svg width="64" height="64" viewBox="0 0 1024 1024" xmlns="http://www.w3.org/2000/svg">
+  <rect x="64" y="64" rx="200" ry="200" width="896" height="896" fill="#6D28D9"/>
+  <rect x="532" y="190" rx="60" ry="60" width="640" height="800" fill="#0B1021" transform="translate(-80,0) scale(0.62,0.78) translate(-520,-190) translate(360,30)"/>
+  <rect x="360" y="270" rx="60" ry="60" width="640" height="800" fill="#F7F7FB" stroke="#22D3EE" stroke-width="18" transform="translate(-80,0) scale(0.62,0.78) translate(-360,-270) translate(40,120)"/>
+  <text x="512" y="600" text-anchor="middle" font-size="360" font-family="system-ui,-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif" font-weight="900" fill="#0B1021">2</text>
+</svg>
