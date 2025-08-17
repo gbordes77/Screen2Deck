@@ -1,0 +1,205 @@
+name: Security Checks
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  schedule:
+    # Run daily at 2 AM UTC
+    - cron: '0 2 * * *'
+
+jobs:
+  tesseract-guard:
+    name: Guard Against Tesseract
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check for Tesseract in Python dependencies
+        run: |
+          echo "🔍 Checking for Tesseract/pytesseract..."
+          
+          # Check requirements files
+          for req_file in $(find . -name "requirements*.txt" -o -name "Pipfile*" -o -name "pyproject.toml"); do
+            if grep -i "tesseract\|pytesseract" "$req_file"; then
+              echo "❌ FAILED: Tesseract found in $req_file"
+              echo "Screen2Deck uses EasyOCR exclusively. Tesseract is NOT allowed."
+              exit 1
+            fi
+          done
+          
+          echo "✅ No Tesseract in dependency files"
+
+      - name: Check for Tesseract imports in code
+        run: |
+          echo "🔍 Checking for Tesseract imports in Python code..."
+          
+          # Check for any Python files importing tesseract
+          if grep -r "import.*tesseract\|from.*tesseract\|pytesseract\|tesserocr" --include="*.py" .; then
+            echo "❌ FAILED: Tesseract imports found in code"
+            echo "Screen2Deck uses EasyOCR exclusively. Remove all Tesseract references."
+            exit 1
+          fi
+          
+          echo "✅ No Tesseract imports in code"
+
+      - name: Check Dockerfiles for Tesseract
+        run: |
+          echo "🔍 Checking Dockerfiles for Tesseract installation..."
+          
+          # Check all Dockerfiles
+          for dockerfile in $(find . -name "Dockerfile*"); do
+            if grep -i "tesseract\|libtesseract" "$dockerfile"; then
+              echo "❌ FAILED: Tesseract found in $dockerfile"
+              echo "Do not install Tesseract in Docker images."
+              exit 1
+            fi
+          done
+          
+          echo "✅ No Tesseract in Dockerfiles"
+
+      - name: Verify EasyOCR is present
+        run: |
+          echo "🔍 Verifying EasyOCR is configured..."
+          
+          # Check that EasyOCR is in requirements
+          if ! grep -i "easyocr" backend/requirements.txt; then
+            echo "⚠️ WARNING: EasyOCR not found in requirements.txt"
+            echo "Make sure EasyOCR is properly configured"
+          else
+            echo "✅ EasyOCR found in requirements"
+          fi
+
+  dependency-scan:
+    name: Dependency Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-audit
+        run: |
+          pip install pip-audit
+
+      - name: Run pip-audit
+        run: |
+          cd backend
+          pip-audit --desc --fix --dry-run
+
+      - name: Run Trivy security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'sarif'
+          output: 'trivy-results.sarif'
+          severity: 'CRITICAL,HIGH'
+
+      - name: Upload Trivy results to GitHub Security
+        uses: github/codeql-action/upload-sarif@v2
+        if: always()
+        with:
+          sarif_file: 'trivy-results.sarif'
+
+  docker-scan:
+    name: Docker Image Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Build Docker image
+        run: |
+          docker build -t screen2deck:test ./backend
+
+      - name: Run Trivy on Docker image
+        uses: aquasecurity/trivy-action@master
+        with:
+          image-ref: 'screen2deck:test'
+          format: 'table'
+          exit-code: '1'
+          ignore-unfixed: true
+          severity: 'CRITICAL,HIGH'
+
+  secrets-scan:
+    name: Scan for Secrets
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Gitleaks
+        uses: gitleaks/gitleaks-action@v2
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+  sbom-generation:
+    name: Generate SBOM
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Generate SBOM with Syft
+        uses: anchore/sbom-action@v0
+        with:
+          path: ./
+          format: spdx-json
+          
+      - name: Upload SBOM
+        uses: actions/upload-artifact@v3
+        with:
+          name: sbom
+          path: sbom.spdx.json
+
+  ocr-validation:
+    name: Validate OCR Configuration
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Check OCR configuration
+        run: |
+          echo "🔍 Validating OCR configuration..."
+          
+          # Check that ALWAYS_VERIFY_SCRYFALL is true
+          if grep -r "ALWAYS_VERIFY_SCRYFALL.*false" --include="*.py" --include="*.env*" .; then
+            echo "⚠️ WARNING: ALWAYS_VERIFY_SCRYFALL might be disabled"
+          fi
+          
+          # Check confidence thresholds
+          if grep -r "OCR_MIN_CONF" --include="*.py" --include="*.env*" . | grep -E "0\.[0-5][0-9]"; then
+            echo "⚠️ WARNING: OCR confidence threshold might be too low (<0.60)"
+          fi
+          
+          echo "✅ OCR configuration checks complete"
+
+  license-check:
+    name: License Compliance Check
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Install pip-licenses
+        run: |
+          pip install pip-licenses
+
+      - name: Check licenses
+        run: |
+          cd backend
+          pip install -r requirements.txt
+          pip-licenses --format=markdown --with-urls --fail-on="GPL;LGPL;AGPL"

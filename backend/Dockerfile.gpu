@@ -1,0 +1,93 @@
+# GPU-enabled Dockerfile for Screen2Deck Backend
+# Requires NVIDIA CUDA support
+
+FROM nvidia/cuda:11.8.0-cudnn8-runtime-ubuntu22.04
+
+# Set environment variables
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    DEBIAN_FRONTEND=noninteractive \
+    CUDA_VISIBLE_DEVICES=0 \
+    TORCH_CUDA_ARCH_LIST="6.0;6.1;7.0;7.5;8.0;8.6" \
+    FORCE_CUDA=1
+
+# Install system dependencies
+RUN apt-get update && apt-get install -y \
+    python3.11 \
+    python3.11-dev \
+    python3-pip \
+    libgl1-mesa-glx \
+    libglib2.0-0 \
+    libsm6 \
+    libxext6 \
+    libxrender-dev \
+    libgomp1 \
+    libgeos-dev \
+    curl \
+    wget \
+    git \
+    && rm -rf /var/lib/apt/lists/*
+
+# Set Python 3.11 as default
+RUN update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 && \
+    update-alternatives --install /usr/bin/pip pip /usr/bin/pip3 1
+
+# Upgrade pip
+RUN pip install --no-cache-dir --upgrade pip setuptools wheel
+
+# Create non-root user for security
+RUN groupadd -g 1000 app && \
+    useradd -r -u 1000 -g app -s /bin/bash app && \
+    mkdir -p /app /home/app/.cache && \
+    chown -R app:app /app /home/app
+
+WORKDIR /app
+
+# Copy requirements first for better caching
+COPY --chown=app:app requirements.txt requirements.gpu.txt ./
+
+# Install Python dependencies with GPU support
+RUN pip install --no-cache-dir -r requirements.txt && \
+    pip install --no-cache-dir -r requirements.gpu.txt
+
+# Install PyTorch with CUDA support
+RUN pip install --no-cache-dir \
+    torch==2.0.1+cu118 \
+    torchvision==0.15.2+cu118 \
+    -f https://download.pytorch.org/whl/torch_stable.html
+
+# Install EasyOCR with GPU support
+RUN pip install --no-cache-dir easyocr==1.7.1
+
+# Pre-download EasyOCR models to speed up first run
+RUN python -c "import easyocr; reader = easyocr.Reader(['en'], gpu=True, download_enabled=True)"
+
+# Copy application code
+COPY --chown=app:app . .
+
+# Create necessary directories
+RUN mkdir -p app/data && \
+    chown -R app:app app/data
+
+# Switch to non-root user
+USER app
+
+# Health check script
+COPY --chown=app:app scripts/healthcheck.sh /healthcheck.sh
+RUN chmod +x /healthcheck.sh
+
+# GPU validation script
+COPY --chown=app:app scripts/validate_gpu.py /validate_gpu.py
+
+# Validate GPU availability on startup
+RUN python /validate_gpu.py || echo "Warning: GPU not detected during build"
+
+# Expose port
+EXPOSE 8080
+
+# Health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=60s --retries=3 \
+    CMD /healthcheck.sh || exit 1
+
+# Start application
+CMD ["python", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8080", "--workers", "1"]

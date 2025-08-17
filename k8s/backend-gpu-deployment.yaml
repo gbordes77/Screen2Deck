@@ -1,0 +1,252 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend-gpu
+  namespace: screen2deck
+  labels:
+    app: backend
+    version: gpu
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: backend
+      version: gpu
+  template:
+    metadata:
+      labels:
+        app: backend
+        version: gpu
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9090"
+        prometheus.io/path: "/metrics"
+    spec:
+      # Node selector for GPU nodes
+      nodeSelector:
+        nvidia.com/gpu: "true"
+        node.kubernetes.io/instance-type: "g4dn.xlarge"  # AWS example
+      
+      # Tolerations for GPU nodes
+      tolerations:
+        - key: nvidia.com/gpu
+          operator: Equal
+          value: "true"
+          effect: NoSchedule
+      
+      # Security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        fsGroup: 1000
+      
+      # Init container to download Scryfall data
+      initContainers:
+        - name: scryfall-downloader
+          image: screen2deck/backend:gpu-latest
+          command: ["python", "scripts/download_scryfall.py"]
+          volumeMounts:
+            - name: scryfall-data
+              mountPath: /app/app/data
+      
+      containers:
+        - name: backend
+          image: screen2deck/backend:gpu-latest
+          imagePullPolicy: Always
+          
+          # GPU resources
+          resources:
+            requests:
+              memory: "2Gi"
+              cpu: "1000m"
+              nvidia.com/gpu: 1
+            limits:
+              memory: "4Gi"
+              cpu: "2000m"
+              nvidia.com/gpu: 1
+          
+          # Environment variables
+          env:
+            - name: APP_ENV
+              value: "production"
+            - name: CUDA_VISIBLE_DEVICES
+              value: "0"
+            - name: GPU_ENABLED
+              value: "true"
+            - name: JWT_SECRET_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: screen2deck-secrets
+                  key: jwt-secret
+            - name: DATABASE_URL
+              valueFrom:
+                secretKeyRef:
+                  name: screen2deck-secrets
+                  key: database-url
+            - name: REDIS_URL
+              valueFrom:
+                secretKeyRef:
+                  name: screen2deck-secrets
+                  key: redis-url
+            - name: REDIS_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: screen2deck-secrets
+                  key: redis-password
+            - name: OPENAI_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: screen2deck-secrets
+                  key: openai-api-key
+                  optional: true
+          
+          # Ports
+          ports:
+            - name: http
+              containerPort: 8080
+              protocol: TCP
+            - name: metrics
+              containerPort: 9090
+              protocol: TCP
+          
+          # Volume mounts
+          volumeMounts:
+            - name: scryfall-data
+              mountPath: /app/app/data
+            - name: cache
+              mountPath: /home/app/.cache
+            - name: config
+              mountPath: /app/config
+              readOnly: true
+          
+          # Probes
+          livenessProbe:
+            httpGet:
+              path: /health/live
+              port: http
+            initialDelaySeconds: 60
+            periodSeconds: 30
+            timeoutSeconds: 10
+            failureThreshold: 3
+          
+          readinessProbe:
+            httpGet:
+              path: /health/ready
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          
+          # Startup probe for slow GPU initialization
+          startupProbe:
+            httpGet:
+              path: /health
+              port: http
+            initialDelaySeconds: 30
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 30  # 5 minutes max startup time
+      
+      # Volumes
+      volumes:
+        - name: scryfall-data
+          persistentVolumeClaim:
+            claimName: scryfall-data-pvc
+        - name: cache
+          emptyDir:
+            sizeLimit: 2Gi
+        - name: config
+          configMap:
+            name: backend-config
+
+---
+# PersistentVolumeClaim for Scryfall data
+apiVersion: v1
+kind: PersistentVolumeClaim
+metadata:
+  name: scryfall-data-pvc
+  namespace: screen2deck
+spec:
+  accessModes:
+    - ReadWriteMany
+  storageClassName: fast-ssd
+  resources:
+    requests:
+      storage: 5Gi
+
+---
+# HorizontalPodAutoscaler for GPU pods
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-gpu-hpa
+  namespace: screen2deck
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend-gpu
+  minReplicas: 1
+  maxReplicas: 5
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: 80
+    - type: Pods
+      pods:
+        metric:
+          name: gpu_utilization
+        target:
+          type: AverageValue
+          averageValue: "80"
+  behavior:
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Percent
+          value: 50
+          periodSeconds: 60
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Percent
+          value: 100
+          periodSeconds: 60
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+
+---
+# Service for GPU backend
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-gpu-service
+  namespace: screen2deck
+  labels:
+    app: backend
+    version: gpu
+spec:
+  type: ClusterIP
+  selector:
+    app: backend
+    version: gpu
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      protocol: TCP
+    - name: metrics
+      port: 9090
+      targetPort: metrics
+      protocol: TCP
