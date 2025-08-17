@@ -150,5 +150,39 @@ async def detailed_health() -> Dict[str, Any]:
             "websocket": settings.FEATURE_WEBSOCKET,
             "async_processing": settings.FEATURE_ASYNC_PROCESSING,
             "tracing": settings.ENABLE_TRACING
-        }
+        },
+        "gdpr": {
+            "enabled": settings.GDPR_ENABLED,
+            "data_retention": {
+                "images_hours": settings.DATA_RETENTION_IMAGES_HOURS,
+                "jobs_hours": settings.DATA_RETENTION_JOBS_HOURS,
+                "hashes_days": settings.DATA_RETENTION_HASHES_DAYS,
+                "logs_days": settings.DATA_RETENTION_LOGS_DAYS,
+                "metrics_days": settings.DATA_RETENTION_METRICS_DAYS
+            },
+            "ttl_seconds": {
+                "images": settings.DATA_RETENTION_IMAGES_HOURS * 3600,
+                "jobs": settings.DATA_RETENTION_JOBS_HOURS * 3600,
+                "hashes": settings.DATA_RETENTION_HASHES_DAYS * 86400,
+                "logs": settings.DATA_RETENTION_LOGS_DAYS * 86400,
+                "metrics": settings.DATA_RETENTION_METRICS_DAYS * 86400
+            },
+            "privacy": {
+                "analytics": settings.ENABLE_ANALYTICS,
+                "tracking": settings.ENABLE_TRACKING,
+                "consent_required": settings.REQUIRE_CONSENT
+            }
+        },
+        "ocr": {
+            "engine": "EasyOCR",
+            "confidence_threshold": settings.OCR_MIN_CONF,
+            "min_lines": settings.OCR_MIN_LINES,
+            "always_verify_scryfall": settings.ALWAYS_VERIFY_SCRYFALL,
+            "anti_tesseract": "ENFORCED - Tesseract is explicitly blocked"
+        },
+        "vision_fallback": {
+            "enabled": settings.ENABLE_VISION_FALLBACK,
+            "confidence_threshold": getattr(settings, "VISION_FALLBACK_CONFIDENCE_THRESHOLD", 0.62),
+            "min_lines": getattr(settings, "VISION_FALLBACK_MIN_LINES", 10)
+        } if settings.ENABLE_VISION_FALLBACK else None
     }

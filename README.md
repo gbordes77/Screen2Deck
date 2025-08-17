@@ -12,12 +12,21 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 
 **Version 2.0** - All critical security issues resolved. [See full production status](./PRODUCTION_READY.md)
 
+### 📊 E2E Benchmark Summary
+- **Accuracy**: 96.2% (target: ≥95%) ✅
+- **P95 Latency**: 2.45s (target: <5s) ✅
+- **Cache Hit Rate**: 82% (target: >80%) ✅
+- **Success Rate**: 100% ✅
+
+📈 [View Full Benchmark Report](./reports/day0/benchmark_day0.md) | [Raw Data (JSON)](./reports/day0/benchmark_day0.json)
+
 ## ✨ Features
 
 ### Core Functionality
-- **📸 Advanced OCR**: Multi-variant processing with EasyOCR + OpenAI Vision fallback
+- **📸 Advanced OCR**: Multi-variant processing with EasyOCR + [OpenAI Vision fallback](./docs/VISION_FALLBACK_POLICY.md)
 - **🔍 Smart Matching**: 95%+ accuracy with Scryfall offline-first cache
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
+- **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md)) ✅
 - **🔐 Enterprise Security**: JWT auth, API keys, rate limiting, input validation
 - **♻️ Idempotency**: Image hash-based deduplication
 - **⚡ Real-time Updates**: WebSocket support for live progress
@@ -256,8 +265,9 @@ locust -f tests/load_test.py --host=http://localhost:8080
 - **Vision API**: Fallback OCR (optional)
 - **Scryfall Cache**: Offline-first card database
 
-## 🔒 Security Features
+## 🔒 Security & Privacy
 
+### Security Features
 - ✅ **JWT Authentication** with refresh tokens
 - ✅ **API Key Support** for programmatic access
 - ✅ **Rate Limiting** per IP and user
@@ -268,6 +278,18 @@ locust -f tests/load_test.py --host=http://localhost:8080
 - ✅ **XSS Protection**
 - ✅ **CORS Configuration**
 - ✅ **Non-root Docker Containers**
+- ✅ **Anti-Tesseract Guard**: CI blocks any pytesseract usage (EasyOCR only)
+
+### 🛡️ GDPR Compliance
+- **Data Retention** ([Full Policy](./docs/GDPR_POLICY.md)):
+  - Images: 24 hours (auto-deleted)
+  - Job metadata: 1 hour
+  - Hash cache: 7 days
+  - Logs: 7 days
+  - Metrics: 30 days
+- **Encryption**: At-rest (AES-256) and in-transit (TLS 1.3)
+- **User Rights**: Export, deletion, opt-out APIs
+- **No Tracking**: No analytics cookies or behavioral tracking
 
 ## 📈 Performance Metrics
 

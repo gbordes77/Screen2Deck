@@ -119,16 +119,31 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
       
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v4
+        with:
+          images: ghcr.io/${{ github.repository_owner }}/screen2deck-${{ matrix.service }}
+          tags: |
+            type=ref,event=tag
+            type=semver,pattern={{version}}
+            type=semver,pattern={{major}}.{{minor}}
+            type=semver,pattern={{major}}
+            type=sha
+      
       - name: Build and push Docker image
         uses: docker/build-push-action@v4
         with:
           context: ./${{ matrix.service }}
           push: true
-          tags: |
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:${{ needs.create-release.outputs.version }}
-            ghcr.io/${{ github.repository_owner }}/${{ matrix.service }}:latest
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          build-args: |
+            VERSION=${{ needs.create-release.outputs.version }}
+            BUILD_DATE=${{ steps.meta.outputs.created }}
+            VCS_REF=${{ github.sha }}
 
   build-artifacts:
     name: Build Release Artifacts
@@ -235,6 +250,20 @@ jobs:
           format: spdx-json
           output-file: sbom.spdx.json
       
+      - name: Run security scan
+        uses: aquasecurity/trivy-action@master
+        with:
+          scan-type: 'fs'
+          scan-ref: '.'
+          format: 'json'
+          output: 'security-scan.json'
+          severity: 'CRITICAL,HIGH,MEDIUM'
+      
+      - name: Copy E2E reports
+        run: |
+          cp reports/day0/benchmark_day0.md e2e-benchmark.md
+          cp reports/day0/benchmark_day0.json e2e-benchmark.json
+      
       - name: Generate security report
         run: |
           # Create security report
@@ -285,6 +314,36 @@ jobs:
           asset_path: ./security-report.md
           asset_name: screen2deck-security-${{ needs.create-release.outputs.version }}.md
           asset_content_type: text/markdown
+      
+      - name: Upload E2E Benchmark Report
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./e2e-benchmark.md
+          asset_name: screen2deck-e2e-benchmark-${{ needs.create-release.outputs.version }}.md
+          asset_content_type: text/markdown
+      
+      - name: Upload E2E Benchmark Data
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./e2e-benchmark.json
+          asset_name: screen2deck-e2e-benchmark-${{ needs.create-release.outputs.version }}.json
+          asset_content_type: application/json
+      
+      - name: Upload Security Scan
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ needs.create-release.outputs.upload_url }}
+          asset_path: ./security-scan.json
+          asset_name: screen2deck-security-scan-${{ needs.create-release.outputs.version }}.json
+          asset_content_type: application/json
 
   deploy-docs:
     name: Deploy Documentation

@@ -51,11 +51,37 @@ graph TD
 
 ### Tracked Metrics
 ```python
-# Prometheus metrics
-screen2deck_vision_fallback_total{reason="low_confidence"}
-screen2deck_vision_fallback_total{reason="min_lines"}
-screen2deck_vision_fallback_total{reason="error"}
-screen2deck_vision_fallback_duration_seconds
+# Prometheus metrics exposed at /metrics
+screen2deck_vision_fallback_total{reason="low_confidence"}  # Counter
+screen2deck_vision_fallback_total{reason="min_lines"}       # Counter
+screen2deck_vision_fallback_total{reason="error"}           # Counter
+screen2deck_vision_fallback_duration_seconds               # Histogram
+screen2deck_vision_fallback_rate                          # Gauge (percentage)
+screen2deck_ocr_confidence_threshold                      # Gauge (current threshold)
+screen2deck_ocr_min_lines_threshold                       # Gauge (current min lines)
+```
+
+### Environment Variables
+```bash
+# Configurable thresholds
+VISION_FALLBACK_CONFIDENCE_THRESHOLD=0.62  # Float 0.0-1.0
+VISION_FALLBACK_MIN_LINES=10              # Integer
+ENABLE_VISION_FALLBACK=false              # Boolean
+VISION_RATE_LIMIT_PER_MINUTE=10           # Integer
+```
+
+### Grafana Dashboard Queries
+```promql
+# Fallback rate (last hour)
+rate(screen2deck_vision_fallback_total[1h]) * 100
+
+# Average confidence when fallback triggered
+avg(screen2deck_ocr_confidence_threshold)
+
+# Vision API latency P95
+histogram_quantile(0.95, 
+  rate(screen2deck_vision_fallback_duration_seconds_bucket[5m])
+)
 ```
 
 ### Logging
