@@ -8,6 +8,7 @@ All retention periods are configurable via environment variables.
 from datetime import datetime, timedelta
 from typing import Optional
 import os
+import time
 import logging
 from pathlib import Path
 
@@ -17,6 +18,7 @@ import redis
 
 from app.config import settings
 from app.core.telemetry import logger
+from app.core.metrics import retention_deleted_total, retention_cleanup_duration, gdpr_requests_total
 
 # Initialize Celery
 celery_app = Celery(
@@ -39,14 +41,18 @@ RETENTION_PERIODS = {
 
 
 @celery_app.task(name='cleanup_expired_images')
-def cleanup_expired_images() -> dict:
+def cleanup_expired_images(dry_run: bool = False) -> dict:
     """
     Delete uploaded images older than retention period.
+    
+    Args:
+        dry_run: If True, only log what would be deleted without actually deleting
     
     Returns:
         dict: Cleanup statistics
     """
     stats = {'deleted_files': 0, 'deleted_records': 0, 'errors': 0}
+    start_time = time.time()
     
     try:
         cutoff = datetime.utcnow() - RETENTION_PERIODS['images']
@@ -58,9 +64,13 @@ def cleanup_expired_images() -> dict:
                 try:
                     file_age = datetime.fromtimestamp(image_file.stat().st_mtime)
                     if file_age < cutoff:
-                        image_file.unlink()
+                        if dry_run:
+                            logger.info(f"[DRY RUN] Would delete expired image: {image_file.name}")
+                        else:
+                            image_file.unlink()
+                            retention_deleted_total.labels(type='images', reason='expired').inc()
                         stats['deleted_files'] += 1
-                        logger.info(f"Deleted expired image: {image_file.name}")
+                        logger.info(f"{'[DRY RUN] Would delete' if dry_run else 'Deleted'} expired image: {image_file.name}")
                 except Exception as e:
                     logger.error(f"Error deleting image {image_file}: {e}")
                     stats['errors'] += 1

@@ -203,6 +203,32 @@ memory_usage_bytes = Gauge(
 )
 
 # ============================================================================
+# GDPR & Retention Metrics
+# ============================================================================
+
+retention_deleted_total = Counter(
+    'screen2deck_retention_deleted_total',
+    'Items deleted by retention policy',
+    ['type', 'reason'],  # images, jobs, hashes, logs; expired, manual, gdpr_request
+    registry=REGISTRY
+)
+
+gdpr_requests_total = Counter(
+    'screen2deck_gdpr_requests_total',
+    'GDPR data requests',
+    ['type', 'status'],  # export, delete, access; success, failure
+    registry=REGISTRY
+)
+
+retention_cleanup_duration = Histogram(
+    'screen2deck_retention_cleanup_duration_seconds',
+    'Time spent on retention cleanup',
+    ['type'],
+    buckets=(0.1, 0.5, 1.0, 2.0, 5.0, 10.0),
+    registry=REGISTRY
+)
+
+# ============================================================================
 # Error Metrics
 # ============================================================================
 

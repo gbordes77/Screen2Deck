@@ -43,6 +43,11 @@ class Settings:
     ENABLE_ANALYTICS: bool = os.getenv("ENABLE_ANALYTICS", "false").lower() == "true"
     ENABLE_TRACKING: bool = os.getenv("ENABLE_TRACKING", "false").lower() == "true"
     REQUIRE_CONSENT: bool = os.getenv("REQUIRE_CONSENT", "true").lower() == "true"
+    
+    # Health endpoint security
+    HEALTH_EXPOSE_INTERNAL: bool = os.getenv("HEALTH_EXPOSE_INTERNAL", "false").lower() == "true"
+    HEALTH_ALLOWED_IPS: str = os.getenv("HEALTH_ALLOWED_IPS", "127.0.0.1,::1")  # Comma-separated
+    HEALTH_REQUIRE_AUTH: bool = os.getenv("HEALTH_REQUIRE_AUTH", "true").lower() == "true"
 
 @lru_cache
 def get_settings():

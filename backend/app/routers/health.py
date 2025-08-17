@@ -2,8 +2,8 @@
 Health check endpoints for Screen2Deck API.
 """
 
-from fastapi import APIRouter, status
-from typing import Dict, Any
+from fastapi import APIRouter, status, Request, HTTPException, Depends
+from typing import Dict, Any, Optional
 import psutil
 import time
 
@@ -12,6 +12,26 @@ from ..core.job_storage import job_storage
 from ..telemetry import logger
 
 router = APIRouter()
+
+
+def check_health_access(request: Request) -> bool:
+    """Check if client is allowed to access detailed health endpoint."""
+    # In development, always allow
+    if settings.APP_ENV == "dev" and settings.HEALTH_EXPOSE_INTERNAL:
+        return True
+    
+    # Check IP allowlist
+    client_ip = request.client.host
+    allowed_ips = [ip.strip() for ip in settings.HEALTH_ALLOWED_IPS.split(",")]
+    
+    if client_ip not in allowed_ips:
+        logger.warning(f"Unauthorized health access attempt from {client_ip}")
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access denied"
+        )
+    
+    return True
 
 @router.get(
     "/health",
@@ -104,12 +124,24 @@ async def readiness() -> Dict[str, Any]:
     "/health/detailed",
     status_code=status.HTTP_200_OK,
     summary="Detailed health check",
-    description="Detailed health information including metrics"
+    description="Detailed health information including metrics",
+    dependencies=[Depends(check_health_access)]
 )
-async def detailed_health() -> Dict[str, Any]:
+async def detailed_health(request: Request) -> Dict[str, Any]:
     """
     Detailed health check with system metrics.
+    Protected endpoint - requires IP allowlist or dev mode.
     """
+    
+    # Sanitize response based on HEALTH_EXPOSE_INTERNAL flag
+    if not settings.HEALTH_EXPOSE_INTERNAL:
+        # Return minimal info in production
+        return {
+            "status": "healthy",
+            "version": "2.0.0",
+            "environment": settings.APP_ENV,
+            "message": "Detailed metrics restricted"
+        }
     # System metrics
     cpu_percent = psutil.cpu_percent(interval=0.1)
     memory = psutil.virtual_memory()

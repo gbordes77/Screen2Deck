@@ -1,10 +1,31 @@
-FROM python:3.11-slim
+# Multi-arch build support (amd64, arm64)
+ARG TARGETPLATFORM
+ARG BUILDPLATFORM
+ARG TARGETARCH
+
+FROM --platform=$TARGETPLATFORM python:3.11-slim
+
+# Build arguments
+ARG VERSION=2.0.0
+ARG BUILD_DATE
+ARG VCS_REF
+
+# Labels for metadata
+LABEL org.opencontainers.image.title="Screen2Deck Backend" \
+      org.opencontainers.image.description="Production-ready OCR for MTG decks" \
+      org.opencontainers.image.version="${VERSION}" \
+      org.opencontainers.image.created="${BUILD_DATE}" \
+      org.opencontainers.image.source="https://github.com/gbordes77/Screen2Deck" \
+      org.opencontainers.image.revision="${VCS_REF}" \
+      org.opencontainers.image.vendor="Screen2Deck" \
+      org.opencontainers.image.licenses="MIT"
 
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
     PIP_NO_CACHE_DIR=1 \
-    PIP_DISABLE_PIP_VERSION_CHECK=1
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    TARGETARCH=${TARGETARCH}
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
