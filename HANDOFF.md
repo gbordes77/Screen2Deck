@@ -5,6 +5,8 @@
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists. The system has been validated and brought from "7/10 non-executable" to **"10/10 up & running"** status.
 
 **Current State**: ✅ Fully functional, validated, and ready for development/deployment
+**Version**: v2.0.1 (2025-08-17)
+**Latest Work**: Stabilisation complète avec CI/CD, health checks, golden tests
 
 ## What Was Done
 
@@ -29,7 +31,22 @@ Screen2Deck is a web application that converts Magic: The Gathering card images 
 
 ## Quick Start Guide
 
-### Option 1: Docker (Recommended)
+### Option 1: Using Makefile (RECOMMENDED - v2.0.1)
+```bash
+# Voir toutes les commandes disponibles
+make help
+
+# Démarrer les services
+make up-core
+
+# Vérifier la santé
+make health
+
+# Voir les logs
+make logs
+```
+
+### Option 2: Docker Compose
 ```bash
 # Start core services
 docker compose --profile core up -d
@@ -42,7 +59,7 @@ curl http://localhost:3000
 docker compose logs -f backend
 ```
 
-### Option 2: Local Development
+### Option 3: Local Development
 ```bash
 # Backend (separate terminal)
 cd backend
@@ -99,18 +116,21 @@ ALWAYS_VERIFY_SCRYFALL=true
 
 ## Files Modified/Created
 
-### Created Files
+### v2.0.1 Updates (2025-08-17)
+- `Makefile` - 20+ commandes utiles pour le développement
+- `.github/workflows/` - CI/CD avec health checks et golden tests
+- `backend/app/telemetry.py` - Stub complet future-proof
+- `backend/app/routers/export_router.py` - Export text/plain
+- `docker-compose.yml` - Healthchecks et conditions
+- `tests/exports/` - Framework golden tests complet
+- `.gitignore` - Protection fichiers sensibles
+- `backend/.env.docker.example` - Template configuration
+
+### Previous Files
 - `backend/requirements-dev-min.txt` - Minimal dependencies
-- `backend/app/telemetry.py` - Telemetry stub (no OpenTelemetry)
 - `backend/Dockerfile.optimized` - BuildKit optimized Dockerfile
 - `test_upload.sh` - API testing script
 - `SANITY_CHECKLIST.md` - Complete validation checklist
-
-### Modified Files
-- `docker-compose.yml` - Added profiles, fixed ports
-- `backend/.env` - Updated database URLs for Docker
-- `backend/app/error_taxonomy.py` - Added VALIDATION_ERROR
-- `webapp/tsconfig.json` - Fixed path aliases
 
 ## Known Limitations
 
@@ -123,6 +143,8 @@ ALWAYS_VERIFY_SCRYFALL=true
 - Discord bot not fully tested (isolated with profile)
 - Some Docker builds slow on first run (model downloads)
 - Frontend build warnings about missing types
+- Auth middleware blocks export endpoints (needs PUBLIC_ENDPOINTS config)
+- OCR upload endpoint needs debugging
 
 ## Testing & Validation
 

@@ -4,12 +4,17 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 🚀 Project Status: FUNCTIONAL & VALIDATED (Score: 10/10) ✅
 
-**Latest Update**: 2025-08-17
+**Latest Update**: 2025-08-17 (v2.0.1)
 - System validated from "7/10 non-executable" to "10/10 up & running"
 - Core services operational (Redis, PostgreSQL, Backend, Frontend)
 - EasyOCR confirmed functional (no Tesseract)
 - Performance: 8.86s average on CPU M1/M2 (2.45s claimed for GPU)
 - Docker optimized with BuildKit caching and ARM64 support
+- ✅ Health/metrics endpoints operational
+- ✅ Export endpoints return text/plain format
+- ✅ CI/CD pipelines avec GitHub Actions
+- ✅ Golden tests framework prêt
+- ⚠️ Auth middleware nécessite config pour exports (voir auth_middleware.py)
 
 ## 🚨 CRITICAL OCR FLOW - NEVER MODIFY WITHOUT AUTHORIZATION 🚨
 
@@ -336,6 +341,42 @@ Available in `decklist-validation-set/`:
 - WebSocket for real-time updates
 - Horizontal scaling with Kubernetes
 - Image preprocessing pipeline optimized
+
+## Quick Start Commands (v2.0.1)
+
+### Using Makefile (Recommended)
+```bash
+# Voir toutes les commandes disponibles
+make help
+
+# Démarrer les services core
+make up-core
+
+# Vérifier la santé
+make health
+
+# Voir les logs
+make logs
+
+# Tester les exports (quand auth configuré)
+make exports-goldens
+
+# Shell dans le backend
+make shell-backend
+```
+
+### Docker Commands
+```bash
+# Démarrer avec Docker Compose
+docker compose --profile core up -d
+
+# Reconstruire après changements
+docker compose build backend
+docker compose up -d backend
+
+# Voir les logs
+docker compose logs -f backend
+```
 
 ## Common Issues & Solutions
 
