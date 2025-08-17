@@ -31,9 +31,20 @@ def main(update: bool=False) -> int:
         deck = json.load(f)
 
     failures = 0
+    OUTDIR = ROOT / "output"
+    OUTDIR.mkdir(parents=True, exist_ok=True)
+    
     for target in TARGETS:
         print(f"==> {target}")
-        out = normalize(post_export(target, deck))
+        try:
+            out = normalize(post_export(target, deck))
+            # Always save output for debugging
+            (OUTDIR / f"{target}.txt").write_text(out, encoding="utf-8")
+        except Exception as e:
+            print(f"  ❌ Failed to export {target}: {e}")
+            failures += 1
+            continue
+            
         golden_file = GOLDENS / f"{target}.txt"
 
         if update or not golden_file.exists():

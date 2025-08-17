@@ -57,6 +57,10 @@ class StubSpan:
     def set_status(self, status: Any):
         """No-op set_status."""
         pass
+    
+    def record_exception(self, exc: Exception):
+        """No-op record_exception."""
+        pass
 
 # Stub context manager
 @contextmanager
@@ -89,6 +93,14 @@ def record_metric(name: str, value: float, attributes: Dict[str, Any] = None):
 def record_error(error: Exception, span_name: str = None):
     """Log error when telemetry is disabled."""
     logger.error(f"Error in {span_name or 'unknown'}: {error}")
+
+# Exception recording
+def record_exception(exc: Exception, attributes: Dict[str, Any] | None = None):
+    """Record exception with attributes."""
+    try:
+        logger.exception("exception", extra={"attrs": attributes or {}})
+    except Exception:
+        pass
 
 # Success recording  
 def record_success(span_name: str = None):

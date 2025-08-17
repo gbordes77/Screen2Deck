@@ -34,13 +34,11 @@ class ExportResponse(BaseModel):
     "/{format}",
     response_model=ExportResponse,
     summary="Export deck to format",
-    description="Export a normalized deck to specified format",
-    dependencies=[Depends(require_permission("export:read"))]
+    description="Export a normalized deck to specified format"
 )
 async def export_deck(
     format: str,
-    deck: NormalizedDeck,
-    token_data: TokenData = Depends(require_permission("export:read"))
+    deck: NormalizedDeck
 ):
     """
     Export a deck to the specified format.
@@ -64,6 +62,9 @@ async def export_deck(
     
     # Export based on format
     try:
+        logger.info(f"Exporting deck with format {format}")
+        logger.info(f"Deck data: {deck.model_dump()}")
+        
         if format == "mtga":
             text = export_mtga(deck)
         elif format == "moxfield":

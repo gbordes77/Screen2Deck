@@ -21,6 +21,11 @@ PUBLIC_ENDPOINTS = {
     "/docs",
     "/openapi.json",
     "/redoc",
+    # Export endpoints for testing
+    "/api/export/mtga",
+    "/api/export/moxfield",
+    "/api/export/archidekt",
+    "/api/export/tappedout",
 }
 
 # Rate-limited public endpoints

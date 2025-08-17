@@ -27,6 +27,11 @@ services:
       - ./backend/app:/app/app
       - ./backend/app/data:/app/app/data
     depends_on: [redis, postgres]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 20s
+      timeout: 5s
+      retries: 10
   
   webapp:
     profiles: ["core"]
@@ -34,7 +39,9 @@ services:
     environment:
       - NEXT_PUBLIC_API_BASE=http://backend:8080
     ports: ["3000:3000"]
-    depends_on: [backend]
+    depends_on:
+      backend:
+        condition: service_healthy
   
   discord-bot:
     profiles: ["discord"]

@@ -1,22 +1,21 @@
 {
-  "format": "Modern",
   "main": [
-    { "qty": 20, "name": "Mountain" },
-    { "qty": 4,  "name": "Monastery Swiftspear" },
-    { "qty": 4,  "name": "Ghitu Lavarunner" },
-    { "qty": 4,  "name": "Soul-Scar Mage" },
-    { "qty": 4,  "name": "Lightning Bolt" },
-    { "qty": 4,  "name": "Play with Fire" },
-    { "qty": 4,  "name": "Wizard's Lightning" },
-    { "qty": 4,  "name": "Lava Spike" },
-    { "qty": 4,  "name": "Rift Bolt" },
-    { "qty": 4,  "name": "Eidolon of the Great Revel" },
-    { "qty": 4,  "name": "Searing Blaze" }
+    { "qty": 4, "name": "Monastery Swiftspear", "scryfall_id": null },
+    { "qty": 4, "name": "Ghitu Lavarunner", "scryfall_id": null },
+    { "qty": 4, "name": "Soul-Scar Mage", "scryfall_id": null },
+    { "qty": 4, "name": "Lightning Bolt", "scryfall_id": null },
+    { "qty": 4, "name": "Play with Fire", "scryfall_id": null },
+    { "qty": 4, "name": "Wizard's Lightning", "scryfall_id": null },
+    { "qty": 4, "name": "Lava Spike", "scryfall_id": null },
+    { "qty": 4, "name": "Rift Bolt", "scryfall_id": null },
+    { "qty": 4, "name": "Eidolon of the Great Revel", "scryfall_id": null },
+    { "qty": 4, "name": "Searing Blaze", "scryfall_id": null },
+    { "qty": 20, "name": "Mountain", "scryfall_id": null }
   ],
   "side": [
-    { "qty": 4, "name": "Smash to Smithereens" },
-    { "qty": 3, "name": "Searing Blood" },
-    { "qty": 4, "name": "Roiling Vortex" },
-    { "qty": 4, "name": "Tormod's Crypt" }
+    { "qty": 4, "name": "Smash to Smithereens", "scryfall_id": null },
+    { "qty": 3, "name": "Searing Blood", "scryfall_id": null },
+    { "qty": 4, "name": "Roiling Vortex", "scryfall_id": null },
+    { "qty": 4, "name": "Tormod's Crypt", "scryfall_id": null }
   ]
 }

@@ -1,185 +1,97 @@
-# Screen2Deck Makefile
-# Production-ready operations and testing
+# Screen2Deck Makefile - Quick commands for development
 
 .PHONY: help
 help: ## Show this help message
-	@echo 'Usage: make [target]'
-	@echo ''
-	@echo 'Available targets:'
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "  %-20s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
-
-# Development
-.PHONY: dev
-dev: ## Start development environment
-	docker-compose up -d
-	@echo "Development environment started:"
-	@echo "  Frontend: http://localhost:3000"
-	@echo "  Backend:  http://localhost:8080"
-	@echo "  API Docs: http://localhost:8080/docs"
-
-.PHONY: stop
-stop: ## Stop all services
-	docker-compose down
-
-.PHONY: clean
-clean: stop ## Clean up containers and volumes
-	docker-compose down -v
-	rm -rf backend/app/data/*.json
-	rm -rf backend/app/data/*.sqlite
-
-# Testing
-.PHONY: test
-test: ## Run all tests
-	cd backend && pytest tests/ -v --cov=app
-	cd webapp && npm test
-	cd discord && npm test
-
-.PHONY: e2e-day0
-e2e-day0: ## Run Day-0 E2E benchmark
-	@echo "Running E2E benchmark..."
-	@python backend/tools/bench/run.py --images ./validation_set --report ./reports/day0
+	@echo "Screen2Deck - Development Commands"
 	@echo ""
-	@echo "Results:"
-	@grep "Accuracy" reports/day0/benchmark_day0.md | head -1
-	@grep "P95 Latency" reports/day0/benchmark_day0.md | head -1
-	@echo ""
-	@if grep -q "✅ PASS" reports/day0/benchmark_day0.md; then \
-		echo "✅ All SLOs met!"; \
-		exit 0; \
-	else \
-		echo "❌ SLO violations detected"; \
-		exit 1; \
-	fi
+	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
-.PHONY: load-test
-load-test: ## Run load test with Locust
-	cd tests/load && locust -f load_test.py --host=http://localhost:8080 --users 100 --spawn-rate 10
+.PHONY: up-core
+up-core: ## Start Redis, Postgres, Backend (core services)
+	@docker compose --profile core up -d redis postgres backend
 
-# Docker operations
+.PHONY: up
+up: ## Start all core services including webapp
+	@docker compose --profile core up -d
+
+.PHONY: down
+down: ## Stop all services
+	@docker compose --profile core down
+
+.PHONY: logs
+logs: ## Follow backend logs
+	@docker compose logs -f backend
+
 .PHONY: build
-build: ## Build Docker images
-	docker-compose build
+build: ## Rebuild backend container
+	@docker compose build backend
 
-.PHONY: build-multiarch
-build-multiarch: ## Build multi-arch Docker images
-	docker buildx build \
-		--platform linux/amd64,linux/arm64 \
-		--tag ghcr.io/gbordes77/screen2deck-backend:latest \
-		--tag ghcr.io/gbordes77/screen2deck-backend:$(VERSION) \
-		--build-arg VERSION=$(VERSION) \
-		--build-arg BUILD_DATE=$(shell date -u +"%Y-%m-%dT%H:%M:%SZ") \
-		--build-arg VCS_REF=$(shell git rev-parse --short HEAD) \
-		--push \
-		backend/
-
-.PHONY: push
-push: ## Push Docker images to registry
-	docker-compose push
-
-# Production
-.PHONY: prod
-prod: ## Start production environment
-	docker-compose -f docker-compose.prod.yml up -d
-
-.PHONY: prod-gpu
-prod-gpu: ## Start production with GPU support
-	docker-compose -f docker-compose.gpu.yml up -d
-
-# Security
-.PHONY: security-scan
-security-scan: ## Run security scans
-	@echo "Running Trivy scan..."
-	@docker run --rm -v $(PWD):/src aquasec/trivy fs /src
-	@echo ""
-	@echo "Checking for Tesseract..."
-	@if grep -r "tesseract\|pytesseract" backend/ --include="*.py"; then \
-		echo "❌ TESSERACT FOUND! This is not allowed."; \
-		exit 1; \
-	else \
-		echo "✅ No Tesseract found"; \
-	fi
-
-.PHONY: generate-secrets
-generate-secrets: ## Generate secure secrets for production
-	@echo "Generating secure secrets..."
-	@echo "JWT_SECRET_KEY=$$(python -c 'import secrets; print(secrets.token_urlsafe(32))')"
-	@echo "DATABASE_PASSWORD=$$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
-	@echo "REDIS_PASSWORD=$$(python -c 'import secrets; print(secrets.token_urlsafe(24))')"
-
-# GDPR compliance
-.PHONY: gdpr-test
-gdpr-test: ## Test GDPR data retention
-	@echo "Testing GDPR retention..."
-	@python backend/tests/test_retention.py
-	@echo "✅ GDPR tests passed"
-
-.PHONY: gdpr-dry-run
-gdpr-dry-run: ## Dry run of data retention cleanup
-	@python -c "from backend.app.core.retention import cleanup_expired_images; cleanup_expired_images(dry_run=True)"
-
-# Monitoring
-.PHONY: metrics
-metrics: ## Show current metrics
-	@curl -s http://localhost:9090/metrics | grep screen2deck | head -20
+.PHONY: restart
+restart: ## Restart backend service
+	@docker compose restart backend
 
 .PHONY: health
-health: ## Check health status
-	@echo "Basic health:"
-	@curl -s http://localhost:8080/health | jq .
-	@echo ""
-	@echo "Detailed health (if authorized):"
-	@curl -s http://localhost:8080/health/detailed | jq . || echo "Access denied (expected in production)"
+health: ## Check backend health
+	@curl -s http://localhost:8080/health | jq . || echo "Backend not healthy"
 
-# Release
-.PHONY: release
-release: ## Create a new release
-	@echo "Current version: $(VERSION)"
-	@echo "Creating release..."
-	@git tag -a v$(VERSION) -m "Release v$(VERSION)"
-	@git push origin v$(VERSION)
-	@echo "✅ Release v$(VERSION) created"
+.PHONY: metrics
+metrics: ## Show backend metrics
+	@curl -s http://localhost:8080/metrics | head -20
 
-.PHONY: changelog
-changelog: ## Update changelog
-	@echo "Updating CHANGELOG.md..."
-	@echo "Add your changes manually to CHANGELOG.md"
-	@echo "Then commit with: git commit -am 'docs: update changelog for v$(VERSION)'"
+.PHONY: exports-goldens
+exports-goldens: ## Compare exports to golden files
+	@python3 tests/exports/run_golden_exports.py
 
-# Examples
-.PHONY: example-upload
-example-upload: ## Example: Upload image via curl
-	@echo "Uploading test image..."
-	@echo ""
-	@echo "curl -X POST http://localhost:8080/api/ocr/upload \\"
-	@echo "  -H 'Content-Type: multipart/form-data' \\"
-	@echo "  -F 'file=@validation_set/test_deck_1.jpg'"
-	@echo ""
-	@echo "This returns a jobId. Then check status with:"
-	@echo "curl http://localhost:8080/api/ocr/status/{jobId}"
+.PHONY: exports-goldens-update
+exports-goldens-update: ## Update golden files with current output
+	@python3 tests/exports/run_golden_exports.py --update
 
-.PHONY: example-export
-example-export: ## Example: Export deck to MTGA format
-	@echo "Example export request:"
-	@echo ""
-	@echo "curl -X POST http://localhost:8080/api/export/mtga \\"
-	@echo "  -H 'Content-Type: application/json' \\"
-	@echo "  -d '{"
-	@echo '    "mainboard": ['
-	@echo '      {"qty": 4, "name": "Lightning Bolt"},'
-	@echo '      {"qty": 24, "name": "Mountain"}'
-	@echo '    ],'
-	@echo '    "sideboard": []'
-	@echo "  }'"
+.PHONY: test-upload
+test-upload: ## Test OCR upload with sample image
+	@curl -X POST http://localhost:8080/api/ocr/upload \
+		-F "file=@validation_set/MTGA deck list_1535x728.jpeg" \
+		-H "Accept: application/json" | jq .
 
-# Variables
-VERSION ?= 2.0.0
-DOCKER_REGISTRY ?= ghcr.io/gbordes77
+.PHONY: clean
+clean: ## Clean Docker volumes and cache
+	@docker compose down -v
+	@find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name ".pytest_cache" -exec rm -rf {} + 2>/dev/null || true
+	@find . -type d -name "node_modules" -exec rm -rf {} + 2>/dev/null || true
 
-# Colors for output
-RED := \033[0;31m
-GREEN := \033[0;32m
-YELLOW := \033[0;33m
-NC := \033[0m # No Color
+.PHONY: shell-backend
+shell-backend: ## Open shell in backend container
+	@docker compose exec backend /bin/bash
 
-# Default target
+.PHONY: shell-postgres
+shell-postgres: ## Open PostgreSQL shell
+	@docker compose exec postgres psql -U postgres -d screen2deck
+
+.PHONY: redis-cli
+redis-cli: ## Open Redis CLI
+	@docker compose exec redis redis-cli
+
+.PHONY: format
+format: ## Format Python code with black
+	@docker compose exec backend black app/
+
+.PHONY: lint
+lint: ## Lint Python code with ruff
+	@docker compose exec backend ruff check app/
+
+.PHONY: test
+test: ## Run backend tests
+	@docker compose exec backend pytest
+
+.PHONY: ci-health
+ci-health: ## Run CI health check locally
+	@echo "JWT_SECRET_KEY=ci" > backend/.env.docker
+	@echo -e "DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d\nREDIS_URL=redis://redis:6379/0\nOCR_MIN_CONF=0.62\nALWAYS_VERIFY_SCRYFALL=true\nFEATURE_TELEMETRY=false\nOTEL_SDK_DISABLED=true" >> backend/.env.docker
+	@docker compose --profile core up -d --build redis postgres backend
+	@for i in {1..40}; do curl -sf http://localhost:8080/health && echo " ✅ Health check passed!" && exit 0; sleep 3; done; echo " ❌ Health check failed!" && exit 1
+
+.PHONY: status
+status: ## Show service status
+	@docker compose ps
+
 .DEFAULT_GOAL := help
