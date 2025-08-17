@@ -13,11 +13,13 @@ import hashlib
 import secrets
 from pydantic import BaseModel
 
-# Configuration
-SECRET_KEY = "your-secret-key-change-this-in-production"  # Move to env
-ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
-API_KEY_PREFIX = "s2d_"
+from .core.config import settings
+
+# Use settings for configuration
+SECRET_KEY = settings.JWT_SECRET_KEY
+ALGORITHM = settings.JWT_ALGORITHM
+ACCESS_TOKEN_EXPIRE_MINUTES = settings.ACCESS_TOKEN_EXPIRE_MINUTES
+API_KEY_PREFIX = settings.API_KEY_PREFIX
 
 # Password hashing
 pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
@@ -29,6 +31,7 @@ class Token(BaseModel):
     access_token: str
     token_type: str = "bearer"
     expires_in: int
+    refresh_token: Optional[str] = None
 
 class ApiKey(BaseModel):
     key: str

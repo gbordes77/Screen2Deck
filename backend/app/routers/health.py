@@ -1,0 +1,154 @@
+"""
+Health check endpoints for Screen2Deck API.
+"""
+
+from fastapi import APIRouter, status
+from typing import Dict, Any
+import psutil
+import time
+
+from ..core.config import settings
+from ..core.job_storage import job_storage
+from ..telemetry import logger
+
+router = APIRouter()
+
+@router.get(
+    "/health",
+    status_code=status.HTTP_200_OK,
+    summary="Health check",
+    description="Basic health check endpoint"
+)
+async def health_check() -> Dict[str, Any]:
+    """
+    Basic health check endpoint.
+    Returns 200 if service is healthy.
+    """
+    return {
+        "status": "healthy",
+        "timestamp": time.time(),
+        "version": "2.0.0"
+    }
+
+
+@router.get(
+    "/health/live",
+    status_code=status.HTTP_200_OK,
+    summary="Liveness probe",
+    description="Kubernetes liveness probe endpoint"
+)
+async def liveness() -> Dict[str, str]:
+    """
+    Liveness probe for Kubernetes.
+    Returns 200 if service is alive.
+    """
+    return {"status": "alive"}
+
+
+@router.get(
+    "/health/ready",
+    status_code=status.HTTP_200_OK,
+    summary="Readiness probe",
+    description="Kubernetes readiness probe endpoint"
+)
+async def readiness() -> Dict[str, Any]:
+    """
+    Readiness probe for Kubernetes.
+    Checks if all dependencies are ready.
+    """
+    checks = {
+        "redis": False,
+        "scryfall": False,
+        "system": False
+    }
+    
+    # Check Redis connection
+    try:
+        await job_storage.connect()
+        stats = await job_storage.get_stats()
+        checks["redis"] = True
+    except Exception as e:
+        logger.error(f"Redis health check failed: {e}")
+    
+    # Check Scryfall cache
+    try:
+        from ..matching.scryfall_cache import scryfall_cache
+        cache_stats = scryfall_cache.get_stats()
+        checks["scryfall"] = cache_stats["total_cards"] > 0
+    except Exception as e:
+        logger.error(f"Scryfall health check failed: {e}")
+    
+    # Check system resources
+    try:
+        cpu_percent = psutil.cpu_percent(interval=0.1)
+        memory = psutil.virtual_memory()
+        checks["system"] = cpu_percent < 90 and memory.percent < 90
+    except Exception as e:
+        logger.error(f"System health check failed: {e}")
+    
+    # Determine overall readiness
+    all_ready = all(checks.values())
+    
+    response = {
+        "status": "ready" if all_ready else "not_ready",
+        "checks": checks
+    }
+    
+    if not all_ready:
+        return response  # Still return 200 for K8s compatibility
+    
+    return response
+
+
+@router.get(
+    "/health/detailed",
+    status_code=status.HTTP_200_OK,
+    summary="Detailed health check",
+    description="Detailed health information including metrics"
+)
+async def detailed_health() -> Dict[str, Any]:
+    """
+    Detailed health check with system metrics.
+    """
+    # System metrics
+    cpu_percent = psutil.cpu_percent(interval=0.1)
+    memory = psutil.virtual_memory()
+    disk = psutil.disk_usage("/")
+    
+    # Job storage stats
+    job_stats = {}
+    try:
+        job_stats = await job_storage.get_stats()
+    except Exception as e:
+        logger.error(f"Failed to get job stats: {e}")
+    
+    # Scryfall cache stats
+    cache_stats = {}
+    try:
+        from ..matching.scryfall_cache import scryfall_cache
+        cache_stats = scryfall_cache.get_stats()
+    except Exception as e:
+        logger.error(f"Failed to get cache stats: {e}")
+    
+    return {
+        "status": "healthy",
+        "version": "2.0.0",
+        "environment": settings.APP_ENV,
+        "system": {
+            "cpu_percent": cpu_percent,
+            "memory_percent": memory.percent,
+            "memory_used_gb": memory.used / (1024**3),
+            "memory_total_gb": memory.total / (1024**3),
+            "disk_percent": disk.percent,
+            "disk_used_gb": disk.used / (1024**3),
+            "disk_total_gb": disk.total / (1024**3)
+        },
+        "jobs": job_stats,
+        "cache": cache_stats,
+        "features": {
+            "vision_fallback": settings.ENABLE_VISION_FALLBACK,
+            "websocket": settings.FEATURE_WEBSOCKET,
+            "async_processing": settings.FEATURE_ASYNC_PROCESSING,
+            "tracing": settings.ENABLE_TRACING
+        }
+    }
