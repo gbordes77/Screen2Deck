@@ -2,99 +2,67 @@
 Export endpoints for Screen2Deck API.
 """
 
-from fastapi import APIRouter, HTTPException, Depends, status
+from fastapi import APIRouter, HTTPException
+from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 
-from ..models import NormalizedDeck
-from ..core.validation import text_validator
-from ..auth import TokenData, require_permission
-from ..telemetry import logger
-from ..error_taxonomy import EXPORT_INVALID
-from .metrics import record_export_request
-
-# Import exporters
+from ..models import NormalizedDeck, NormalizedCard
 from ..exporters.mtga import export_mtga
 from ..exporters.moxfield import export_moxfield
 from ..exporters.archidekt import export_archidekt
 from ..exporters.tappedout import export_tappedout
+from ..telemetry import logger, telemetry
 
 router = APIRouter()
 
-class ExportRequest(BaseModel):
-    deck: NormalizedDeck
-    format: str
+class CardIn(BaseModel):
+    qty: int
+    name: str
+    scryfall_id: Optional[str] = None
 
-class ExportResponse(BaseModel):
-    text: str
-    format: str
+class ExportPayload(BaseModel):
+    main: List[CardIn]
+    side: List[CardIn] = []
 
+def _to_normalized(payload: ExportPayload) -> NormalizedDeck:
+    main = [NormalizedCard(qty=c.qty, name=c.name, scryfall_id=c.scryfall_id) for c in payload.main]
+    side = [NormalizedCard(qty=c.qty, name=c.name, scryfall_id=c.scryfall_id) for c in payload.side]
+    return NormalizedDeck(main=main, side=side)
 
 @router.post(
     "/{format}",
-    response_model=ExportResponse,
+    response_class=PlainTextResponse,
     summary="Export deck to format",
-    description="Export a normalized deck to specified format"
+    description="Export a normalized deck to specified format (unauthenticated for CI golden tests)"
 )
-async def export_deck(
-    format: str,
-    deck: NormalizedDeck
-):
+async def export_deck(format: str, payload: ExportPayload):
     """
     Export a deck to the specified format.
-    
-    Supported formats:
-    - mtga: MTG Arena
-    - moxfield: Moxfield
-    - archidekt: Archidekt
-    - tappedout: TappedOut
-    - json: Raw JSON
     """
-    # Validate format
-    if not text_validator.validate_export_format(format):
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail={
-                "code": EXPORT_INVALID,
-                "message": f"Unknown export format: {format}"
-            }
-        )
+    # Simple format validation
+    valid_formats = ["mtga", "moxfield", "archidekt", "tappedout"]
+    if format not in valid_formats:
+        raise HTTPException(status_code=400, detail="Invalid export format")
     
-    # Export based on format
-    try:
-        logger.info(f"Exporting deck with format {format}")
-        logger.info(f"Deck data: {deck.model_dump()}")
-        
-        if format == "mtga":
-            text = export_mtga(deck)
-        elif format == "moxfield":
-            text = export_moxfield(deck)
-        elif format == "archidekt":
-            text = export_archidekt(deck)
-        elif format == "tappedout":
-            text = export_tappedout(deck)
-        elif format == "json":
-            import json
-            text = json.dumps(deck.model_dump(), indent=2)
-        else:
-            raise ValueError(f"Unsupported format: {format}")
-        
-        # Record metric
-        record_export_request(format)
-        
-        logger.info(f"Exported deck to {format} format")
-        
-        return ExportResponse(text=text, format=format)
-        
-    except Exception as e:
-        logger.error(f"Export failed for format {format}: {e}")
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail={
-                "code": EXPORT_INVALID,
-                "message": f"Export failed: {str(e)}"
-            }
-        )
+    deck = _to_normalized(payload)
+    
+    with telemetry.span("export_deck") as span:
+        try:
+            if format == "mtga":
+                return export_mtga(deck)
+            if format == "moxfield":
+                return export_moxfield(deck)
+            if format == "archidekt":
+                return export_archidekt(deck)
+            if format == "tappedout":
+                return export_tappedout(deck)
+            raise HTTPException(status_code=400, detail="Unknown export format")
+        except Exception as e:
+            telemetry.record_exception(e, {"format": format})
+            logger.exception("export_failed")
+            # Return clean 500
+            raise HTTPException(status_code=500, detail="export_failed")
 
 
 @router.get(

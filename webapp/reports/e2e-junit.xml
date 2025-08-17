@@ -1,0 +1,330 @@
+<testsuites id="" name="" tests="72" failures="0" skipped="72" errors="0" time="0.08170499999999999">
+<testsuite name="accessibility.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="chromium" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Accessibility - WCAG Compliance › S9.1 - Upload page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.2 - Deck results page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.3 - Focus management and keyboard navigation" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.4 - Screen reader compatibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.5 - Color contrast and visual accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="api-parity.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="chromium" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="API Parity - UI vs API vs Goldens › S2.1 - UI export equals API export" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.2 - Deck structure matches golden data" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.3 - Multiple format exports consistency" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="happy-path.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="chromium" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Happy Path - Upload to Export › S1.1 - Upload MTGA deck and export to MTGA format" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.2 - Export to all formats (Moxfield, Archidekt, TappedOut)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.3 - Multiple image types (JPEG, PNG, WebP)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="idempotency.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="chromium" tests="4" failures="0" skipped="4" time="0" errors="0">
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.1 - Re-upload same file shows cache behavior" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.2 - Concurrent uploads of same file (multi-tab simulation)" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.3 - API idempotency with job status" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.4 - Different images produce different results" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="setup-validation.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="chromium" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Setup Validation › should have all services running" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should load upload page successfully" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should have API documentation accessible" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="accessibility.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="firefox" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Accessibility - WCAG Compliance › S9.1 - Upload page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.2 - Deck results page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.3 - Focus management and keyboard navigation" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.4 - Screen reader compatibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.5 - Color contrast and visual accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="api-parity.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="firefox" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="API Parity - UI vs API vs Goldens › S2.1 - UI export equals API export" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.2 - Deck structure matches golden data" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.3 - Multiple format exports consistency" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="happy-path.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="firefox" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Happy Path - Upload to Export › S1.1 - Upload MTGA deck and export to MTGA format" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.2 - Export to all formats (Moxfield, Archidekt, TappedOut)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.3 - Multiple image types (JPEG, PNG, WebP)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="idempotency.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="firefox" tests="4" failures="0" skipped="4" time="0" errors="0">
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.1 - Re-upload same file shows cache behavior" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.2 - Concurrent uploads of same file (multi-tab simulation)" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.3 - API idempotency with job status" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.4 - Different images produce different results" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="setup-validation.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="firefox" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Setup Validation › should have all services running" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should load upload page successfully" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should have API documentation accessible" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="accessibility.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="webkit" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Accessibility - WCAG Compliance › S9.1 - Upload page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.2 - Deck results page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.3 - Focus management and keyboard navigation" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.4 - Screen reader compatibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.5 - Color contrast and visual accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="api-parity.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="webkit" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="API Parity - UI vs API vs Goldens › S2.1 - UI export equals API export" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.2 - Deck structure matches golden data" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.3 - Multiple format exports consistency" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="happy-path.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="webkit" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Happy Path - Upload to Export › S1.1 - Upload MTGA deck and export to MTGA format" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.2 - Export to all formats (Moxfield, Archidekt, TappedOut)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.3 - Multiple image types (JPEG, PNG, WebP)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="idempotency.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="webkit" tests="4" failures="0" skipped="4" time="0" errors="0">
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.1 - Re-upload same file shows cache behavior" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.2 - Concurrent uploads of same file (multi-tab simulation)" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.3 - API idempotency with job status" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.4 - Different images produce different results" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="setup-validation.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="webkit" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Setup Validation › should have all services running" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should load upload page successfully" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should have API documentation accessible" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="accessibility.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="mobile" tests="5" failures="0" skipped="5" time="0" errors="0">
+<testcase name="Accessibility - WCAG Compliance › S9.1 - Upload page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.2 - Deck results page accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.3 - Focus management and keyboard navigation" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.4 - Screen reader compatibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Accessibility - WCAG Compliance › S9.5 - Color contrast and visual accessibility" classname="accessibility.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="api-parity.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="mobile" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="API Parity - UI vs API vs Goldens › S2.1 - UI export equals API export" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.2 - Deck structure matches golden data" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="API Parity - UI vs API vs Goldens › S2.3 - Multiple format exports consistency" classname="api-parity.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="happy-path.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="mobile" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Happy Path - Upload to Export › S1.1 - Upload MTGA deck and export to MTGA format" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.2 - Export to all formats (Moxfield, Archidekt, TappedOut)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Happy Path - Upload to Export › S1.3 - Multiple image types (JPEG, PNG, WebP)" classname="happy-path.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="idempotency.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="mobile" tests="4" failures="0" skipped="4" time="0" errors="0">
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.1 - Re-upload same file shows cache behavior" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.2 - Concurrent uploads of same file (multi-tab simulation)" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.3 - API idempotency with job status" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Idempotency - Caching and Duplicate Handling › S3.4 - Different images produce different results" classname="idempotency.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+<testsuite name="setup-validation.spec.ts" timestamp="2025-08-17T16:14:47.169Z" hostname="mobile" tests="3" failures="0" skipped="3" time="0" errors="0">
+<testcase name="Setup Validation › should have all services running" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should load upload page successfully" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+<testcase name="Setup Validation › should have API documentation accessible" classname="setup-validation.spec.ts" time="0">
+<skipped>
+</skipped>
+</testcase>
+</testsuite>
+</testsuites>
