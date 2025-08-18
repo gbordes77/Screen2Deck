@@ -21,11 +21,6 @@ PUBLIC_ENDPOINTS = {
     "/docs",
     "/openapi.json",
     "/redoc",
-    # Export endpoints for testing
-    "/api/export/mtga",
-    "/api/export/moxfield",
-    "/api/export/archidekt",
-    "/api/export/tappedout",
 }
 
 # Rate-limited public endpoints
@@ -50,6 +45,10 @@ class AuthMiddleware(BaseHTTPMiddleware):
         
         # Skip auth for public endpoints
         if path in self.skip_auth_paths:
+            return await call_next(request)
+        
+        # Skip auth for export endpoints (public for testing)
+        if path.startswith("/api/export/"):
             return await call_next(request)
         
         # Check if endpoint is rate-limited public

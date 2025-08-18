@@ -44,14 +44,32 @@ class IdempotencyKey:
         Returns:
             Deterministic idempotency key
         """
+        # Get actual EasyOCR version dynamically
+        ocr_version = "unknown"
+        try:
+            import easyocr
+            ocr_version = getattr(easyocr, "__version__", None)
+            if not ocr_version:
+                # Fallback to importlib.metadata
+                try:
+                    import importlib.metadata as md
+                    ocr_version = md.version("easyocr")
+                except:
+                    ocr_version = "1.7.1"  # Known version fallback
+        except Exception:
+            ocr_version = "1.7.1"
+        
         # Default OCR config
         if ocr_config is None:
             ocr_config = {
                 "min_conf": settings.OCR_MIN_CONF,
                 "min_lines": settings.OCR_MIN_LINES,
                 "vision_enabled": settings.ENABLE_VISION_FALLBACK,
-                "preprocessing": "4-variant"
+                "preprocessing": "4-variant",
+                "ocr_version": ocr_version  # Include OCR version
             }
+        else:
+            ocr_config["ocr_version"] = ocr_version
         
         # Default Scryfall snapshot to today's date
         if scryfall_snapshot is None:

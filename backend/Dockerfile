@@ -52,6 +52,10 @@ USER screen2deck
 # Install Python dependencies
 RUN pip install --user --no-cache-dir -r requirements.txt
 
+# Pre-download EasyOCR models for faster cold starts (English only)
+# This adds ~700MB to image but eliminates runtime download
+RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)" || true
+
 # Copy application code
 COPY --chown=screen2deck:screen2deck app ./app
 COPY --chown=screen2deck:screen2deck scripts ./scripts

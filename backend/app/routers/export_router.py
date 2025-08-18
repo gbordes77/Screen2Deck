@@ -2,8 +2,8 @@
 Export endpoints for Screen2Deck API.
 """
 
-from fastapi import APIRouter, HTTPException
-from fastapi.responses import PlainTextResponse
+from fastapi import APIRouter, HTTPException, Request, Depends
+from fastapi.responses import PlainTextResponse, JSONResponse
 from pydantic import BaseModel
 from typing import Optional, List
 
@@ -13,8 +13,18 @@ from ..exporters.moxfield import export_moxfield
 from ..exporters.archidekt import export_archidekt
 from ..exporters.tappedout import export_tappedout
 from ..telemetry import logger, telemetry
+from ..core.rate_limit import export_rate_limiter
 
 router = APIRouter()
+
+async def check_rate_limit(request: Request):
+    """Dependency to check rate limit for export endpoints."""
+    rate_limit_response = await export_rate_limiter.check_request(request)
+    if rate_limit_response:
+        raise HTTPException(
+            status_code=429,
+            detail=rate_limit_response.body.decode() if hasattr(rate_limit_response, 'body') else "Rate limit exceeded"
+        )
 
 class CardIn(BaseModel):
     qty: int
@@ -34,9 +44,10 @@ def _to_normalized(payload: ExportPayload) -> NormalizedDeck:
     "/{format}",
     response_class=PlainTextResponse,
     summary="Export deck to format",
-    description="Export a normalized deck to specified format (unauthenticated for CI golden tests)"
+    description="Export a normalized deck to specified format (unauthenticated for CI golden tests, rate limited to 20 req/min/IP)",
+    dependencies=[Depends(check_rate_limit)]
 )
-async def export_deck(format: str, payload: ExportPayload):
+async def export_deck(format: str, payload: ExportPayload, request: Request):
     """
     Export a deck to the specified format.
     """
@@ -50,14 +61,26 @@ async def export_deck(format: str, payload: ExportPayload):
     with telemetry.span("export_deck") as span:
         try:
             if format == "mtga":
-                return export_mtga(deck)
-            if format == "moxfield":
-                return export_moxfield(deck)
-            if format == "archidekt":
-                return export_archidekt(deck)
-            if format == "tappedout":
-                return export_tappedout(deck)
-            raise HTTPException(status_code=400, detail="Unknown export format")
+                content = export_mtga(deck)
+            elif format == "moxfield":
+                content = export_moxfield(deck)
+            elif format == "archidekt":
+                content = export_archidekt(deck)
+            elif format == "tappedout":
+                content = export_tappedout(deck)
+            else:
+                raise HTTPException(status_code=400, detail="Unknown export format")
+            
+            # Create response with rate limit headers
+            response = PlainTextResponse(content=content)
+            if hasattr(request.state, "rate_limit_headers"):
+                for key, value in request.state.rate_limit_headers.items():
+                    response.headers[key] = value
+            
+            return response
+            
+        except HTTPException:
+            raise
         except Exception as e:
             telemetry.record_exception(e, {"format": format})
             logger.exception("export_failed")

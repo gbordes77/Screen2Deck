@@ -14,11 +14,21 @@ from fastapi.responses import ORJSONResponse
 import numpy as np
 import cv2
 
+# Initialize determinism FIRST
+from .core.determinism import init_determinism
+init_determinism()
+
 # Core imports
 from .core.config import settings
 from .core.auth_middleware import AuthMiddleware, SecurityHeadersMiddleware
 from .core.job_storage import job_storage
 from .core.validation import image_validator, text_validator, request_validator
+from .core.feature_flags import FeatureFlags
+from .core.idempotency import generate_job_key, verify_idempotency
+from .core.metrics_minimal import (
+    create_metrics_app, track_ocr_request, record_cache_access, 
+    record_export, OCR_REQUESTS, JOBS_INFLIGHT
+)
 from .auth import get_current_token, TokenData, create_access_token, require_permission
 
 # Application imports
@@ -35,6 +45,10 @@ from .matching.scryfall_cache import scryfall_cache
 from .matching.scryfall_client import SCRYFALL
 from .business_rules import validate_and_fill
 from .routers import health, metrics, auth_router, export_router
+
+# Initialize feature flags
+FLAGS = FeatureFlags.get_all_flags()
+logger.info(f"Feature flags: {FLAGS}")
 
 
 @asynccontextmanager
@@ -104,9 +118,12 @@ app.add_middleware(
     allow_headers=settings.CORS_ALLOW_HEADERS
 )
 
+# Mount Prometheus metrics endpoint
+metrics_app = create_metrics_app()
+app.mount("/metrics", metrics_app)
+
 # Include routers
 app.include_router(health.router, tags=["health"])
-app.include_router(metrics.router, tags=["metrics"])
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(export_router, prefix="/api/export", tags=["export"])
 
@@ -130,10 +147,11 @@ async def upload_image(
     - Idempotency via image hash
     - Async job processing
     - Rate limiting per IP
+    - Prometheus metrics tracking
     """
-    with telemetry.span("upload_image") as span:
+    # Track OCR request
+    with track_ocr_request():
         trace_id = new_trace()
-        span.set_attribute("trace_id", trace_id)
         
         # Validate request headers
         if not request_validator.validate_headers(dict(request.headers)):
@@ -157,14 +175,32 @@ async def upload_image(
                 detail={"code": BAD_IMAGE, "message": "Image validation failed"}
             )
         
-        image_hash = metadata["hash"]
-        span.set_attribute("image_hash", image_hash[:8])
+        # Generate idempotency key
+        pipeline_config = {
+            "ocr_engine": FLAGS["ocr_engine"],
+            "languages": FLAGS["ocr_languages"],
+            "min_confidence": FLAGS["ocr_confidence"],
+            "fuzzy_topk": FLAGS.get("fuzzy_topk", 5),
+            "scryfall_verify": True,
+            "preprocess": {
+                "denoise": True,
+                "binarize": True,
+                "sharpen": True,
+                "superres": False
+            }
+        }
         
-        # Check for existing job (idempotency)
-        existing_job_id = await job_storage.find_by_image_hash(image_hash)
-        if existing_job_id:
-            logger.info(f"Found existing job {existing_job_id} for image hash {image_hash[:8]}")
-            return UploadResponse(jobId=existing_job_id, cached=True)
+        job_key = generate_job_key(sanitized_content, pipeline_config)
+        
+        # Check cache (idempotency)
+        if settings.USE_REDIS:
+            existing_job_id = await job_storage.find_by_key(job_key)
+            if existing_job_id:
+                logger.info(f"Cache hit for job key {job_key[:16]}")
+                record_cache_access("ocr", hit=True)
+                return UploadResponse(jobId=existing_job_id, cached=True)
+        
+        record_cache_access("ocr", hit=False)
         
         # Create new job
         job_id = str(uuid.uuid4())

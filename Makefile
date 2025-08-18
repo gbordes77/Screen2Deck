@@ -126,6 +126,30 @@ golden: artifacts ## Check golden exports
 parity: artifacts ## Check web/Discord parity
 	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && python tools/parity_check.py --out $(ARTIFACTS)/parity
 
+.PHONY: bench-truth
+bench-truth: artifacts ## Run independent benchmark for truth metrics
+	@echo "🔍 Running independent benchmark..."
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && \
+		pip install -q requests && \
+		python tools/benchmark_independent.py \
+			--images ./validation_set \
+			--output ./reports/truth_bench.json \
+			--url http://localhost:8080
+	@echo "✅ Truth benchmark saved to reports/truth_bench.json"
+
+.PHONY: bench-compare
+bench-compare: ## Compare official vs truth benchmarks
+	@echo "📊 Comparing benchmarks..."
+	@echo "=== Official Benchmark (day0) ==="
+	@cat reports/day0/benchmark_day0.json 2>/dev/null | jq -r '.accuracy' || echo "Not found"
+	@echo ""
+	@echo "=== Truth Benchmark (independent) ==="
+	@cat reports/truth_bench.json 2>/dev/null | jq -r '.accuracy.exact_match.mean' || echo "Not found"
+	@echo ""
+	@echo "=== Differences ==="
+	@diff -u <(cat reports/day0/benchmark_day0.json 2>/dev/null | jq '.') \
+		<(cat reports/truth_bench.json 2>/dev/null | jq '.') || true
+
 .PHONY: artifacts
 artifacts: ## Create artifacts directories
 	@mkdir -p $(ARTIFACTS) $(REPORT)

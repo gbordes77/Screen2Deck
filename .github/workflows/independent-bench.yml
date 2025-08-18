@@ -1,0 +1,196 @@
+name: Independent Benchmark CI
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    paths:
+      - 'backend/**'
+      - 'tools/**'
+      - 'validation_set/**'
+      - '.github/workflows/independent-bench.yml'
+
+jobs:
+  bench:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+      
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: 'pip'
+      
+      - name: Install backend dependencies
+        run: |
+          pip install --upgrade pip
+          pip install -r backend/requirements.txt
+          pip install requests  # For benchmark script
+      
+      - name: Download Scryfall data
+        run: |
+          cd backend
+          python scripts/download_scryfall.py --minimal
+        timeout-minutes: 2
+      
+      - name: Start Backend API
+        env:
+          APP_ENV: ci
+          HOST: 0.0.0.0
+          PORT: 8080
+          CORS_ORIGINS: '["http://localhost:3000"]'
+          USE_REDIS: "true"
+          REDIS_URL: redis://localhost:6379/0
+          JWT_SECRET_KEY: ${{ secrets.JWT_SECRET_KEY || 'ci-test-secret-key-min-32-chars-for-testing' }}
+          ALWAYS_VERIFY_SCRYFALL: "true"
+          ENABLE_VISION_FALLBACK: "false"
+          OCR_MIN_CONF: "0.62"
+          LOG_LEVEL: "INFO"
+          # Anti-flakiness settings
+          PYTHONHASHSEED: "0"
+          OMP_NUM_THREADS: "1"
+          MKL_NUM_THREADS: "1"
+          OPENBLAS_NUM_THREADS: "1"
+          NUMEXPR_NUM_THREADS: "1"
+          TOKENIZERS_PARALLELISM: "false"
+          S2D_SEED: "42"
+          S2D_THREADS: "1"
+          DETERMINISTIC_MODE: "on"
+          # Feature flags
+          OCR_ENGINE: "easyocr"
+          VISION_OCR_FALLBACK: "off"
+          FUZZY_STRICT_MODE: "on"
+          SCRYFALL_ONLINE: "off"
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 0.0.0.0 --port 8080 > /tmp/api.log 2>&1 &
+          echo "Waiting for API to start..."
+          for i in {1..60}; do
+            if curl -fsS http://localhost:8080/health; then
+              echo "API is healthy"
+              break
+            fi
+            echo "Waiting... ($i/60)"
+            sleep 1
+          done
+          # Fail if API didn't start
+          curl -fsS http://localhost:8080/health || (cat /tmp/api.log && exit 1)
+      
+      - name: Run Independent Benchmark
+        run: |
+          python tools/benchmark_independent.py \
+            --images ./validation_set \
+            --output ./reports/ci_bench.json \
+            --url http://localhost:8080
+      
+      - name: Validate Thresholds
+        run: |
+          python - <<'PYTHON'
+          import json
+          import sys
+          
+          with open('./reports/ci_bench.json') as f:
+              data = json.load(f)
+          
+          # Extract metrics
+          acc = data['accuracy']['exact_match']['mean']
+          fuzzy_acc = data['accuracy']['fuzzy_match']['mean'] 
+          p95 = data['latency']['p95']
+          cache_hit_rate = data['summary']['cache_hit_rate']
+          
+          print(f"=== Benchmark Results ===")
+          print(f"Exact Accuracy: {acc:.1f}%")
+          print(f"Fuzzy Accuracy: {fuzzy_acc:.1f}%")
+          print(f"P95 Latency: {p95:.2f}s")
+          print(f"Cache Hit Rate: {cache_hit_rate:.1%}")
+          print(f"========================")
+          
+          # Validate thresholds
+          failures = []
+          
+          # Exact match accuracy threshold (relaxed for CI)
+          if acc < 40:
+              failures.append(f"❌ Exact accuracy {acc:.1f}% < 40% minimum")
+          else:
+              print(f"✅ Exact accuracy {acc:.1f}% >= 40%")
+          
+          # Fuzzy match should be better
+          if fuzzy_acc < 60:
+              failures.append(f"❌ Fuzzy accuracy {fuzzy_acc:.1f}% < 60% minimum")
+          else:
+              print(f"✅ Fuzzy accuracy {fuzzy_acc:.1f}% >= 60%")
+          
+          # P95 latency threshold (relaxed for CI)
+          if p95 > 8.0:
+              failures.append(f"❌ P95 latency {p95:.2f}s > 8.0s maximum")
+          else:
+              print(f"✅ P95 latency {p95:.2f}s <= 8.0s")
+          
+          # Cache hit rate (second run should have hits)
+          if len(data['details']) > 5 and cache_hit_rate < 0.2:
+              print(f"⚠️  Cache hit rate {cache_hit_rate:.1%} < 20% (warning)")
+          
+          if failures:
+              print("\n🚨 Threshold violations:")
+              for f in failures:
+                  print(f)
+              sys.exit(1)
+          else:
+              print("\n✅ All thresholds passed!")
+          PYTHON
+      
+      - name: Show API logs on failure
+        if: failure()
+        run: |
+          echo "=== API Logs ==="
+          cat /tmp/api.log || true
+          echo "=== Redis Check ==="
+          redis-cli -h localhost ping || true
+      
+      - name: Upload benchmark report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-report-${{ github.run_number }}
+          path: reports/ci_bench.json
+          retention-days: 30
+      
+      - name: Comment PR with results
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const data = JSON.parse(fs.readFileSync('./reports/ci_bench.json', 'utf8'));
+            
+            const comment = `## 📊 Independent Benchmark Results
+            
+            | Metric | Value | Threshold | Status |
+            |--------|-------|-----------|--------|
+            | Exact Accuracy | ${data.accuracy.exact_match.mean.toFixed(1)}% | ≥40% | ${data.accuracy.exact_match.mean >= 40 ? '✅' : '❌'} |
+            | Fuzzy Accuracy | ${data.accuracy.fuzzy_match.mean.toFixed(1)}% | ≥60% | ${data.accuracy.fuzzy_match.mean >= 60 ? '✅' : '❌'} |
+            | P95 Latency | ${data.latency.p95.toFixed(2)}s | ≤8s | ${data.latency.p95 <= 8 ? '✅' : '❌'} |
+            | Cache Hit Rate | ${(data.summary.cache_hit_rate * 100).toFixed(1)}% | - | ℹ️ |
+            
+            Tests: ${data.summary.successful}/${data.summary.total_tests} successful`;
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: comment
+            });
