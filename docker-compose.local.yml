@@ -1,0 +1,100 @@
+version: "3.9"
+
+services:
+  api:
+    build: ./backend
+    container_name: s2d_api
+    environment:
+      - FEATURE_VISION_FALLBACK=false
+      - OCR_GPU=0
+      - SCRYFALL_MODE=offline
+      - SCRYFALL_CACHE=/data/scryfall.sqlite
+      - JWT_SECRET_KEY=local-demo-key
+      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d
+      - REDIS_URL=redis://redis:6379/0
+      - OCR_MIN_CONF=0.62
+      - ALWAYS_VERIFY_SCRYFALL=true
+    volumes:
+      - ./data:/data
+    expose: [ "8080" ]
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
+      interval: 10s
+      timeout: 3s
+      retries: 10
+    depends_on:
+      - redis
+      - postgres
+
+  web:
+    build: ./webapp
+    container_name: s2d_web
+    environment:
+      - NEXT_PUBLIC_API_URL=/api
+      - NEXT_PUBLIC_WS_URL=ws://localhost:8088/ws
+    command: >
+      sh -c "npm ci && npm run build && npm run export &&
+             cp -r out /export"
+    volumes:
+      - ./_build/web:/export
+
+  docs:
+    image: squidfunk/mkdocs-material:latest
+    container_name: s2d_docs
+    working_dir: /docs
+    volumes:
+      - ./docs:/docs
+      - ./_build/docs:/site
+    command: ["mkdocs", "build", "--clean"]
+
+  nginx:
+    image: nginx:alpine
+    container_name: s2d_gateway
+    depends_on: [ api, web, docs ]
+    volumes:
+      - ./ops/nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
+      - ./_build/web/out:/usr/share/nginx/html/app:ro
+      - ./_build/docs:/usr/share/nginx/html/docs:ro
+      - ./artifacts:/usr/share/nginx/html/artifacts:ro
+      - ./playwright-report:/usr/share/nginx/html/report:ro
+      - ./webapp/public/demo:/usr/share/nginx/html/video:ro
+    ports: [ "8088:80" ]
+    healthcheck:
+      test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: s2d_redis
+    expose: [ "6379" ]
+    volumes:
+      - ./data/redis:/data
+    command: redis-server --appendonly yes
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: s2d_postgres
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=s2d
+    expose: [ "5432" ]
+    volumes:
+      - ./data/postgres:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+
+networks:
+  default:
+    name: s2d_local
+    driver: bridge

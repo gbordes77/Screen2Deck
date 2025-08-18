@@ -151,4 +151,55 @@ ci-health: ## Run CI health check locally
 status: ## Show service status
 	@docker compose ps
 
+# Local Demo Hub commands
+.PHONY: demo-local
+demo-local: ## Launch local demo hub (app/api/docs/nginx) on http://localhost:8088
+	@echo "🚀 Starting local demo hub..."
+	@mkdir -p _build/web _build/docs artifacts playwright-report webapp/public/demo data
+	@docker compose -f docker-compose.local.yml up -d --build
+	@echo "⏳ Waiting for services to be ready..."
+	@sleep 10
+	@echo "✅ Demo Hub ready!"
+	@echo ""
+	@echo "📍 Open http://localhost:8088"
+	@echo "   • /app      → Web UI"
+	@echo "   • /api      → Backend API"
+	@echo "   • /docs     → Documentation"
+	@echo "   • /report   → Playwright reports"
+	@echo "   • /artifacts → Metrics & benchmarks"
+	@echo "   • /video    → Demo videos"
+
+.PHONY: stop-local
+stop-local: ## Stop local demo hub
+	@docker compose -f docker-compose.local.yml down
+	@echo "✅ Demo Hub stopped"
+
+.PHONY: proofs-local
+proofs-local: ## Generate local reports (bench + e2e) and expose them
+	@echo "📊 Generating proofs..."
+	@make bench-day0
+	@npm ci && npx playwright install --with-deps
+	@set -a; source .env.e2e 2>/dev/null || true; set +a; npx playwright test || true
+	@echo "✅ Reports generated!"
+	@echo "📍 View at:"
+	@echo "   • http://localhost:8088/report/  → Playwright E2E"
+	@echo "   • http://localhost:8088/artifacts/ → Benchmarks"
+
+.PHONY: screencast-record
+screencast-record: ## Record a screencast (macOS)
+	@mkdir -p webapp/public/demo
+	@echo "🎥 Recording screencast (press Ctrl+C to stop)..."
+	@ffmpeg -f avfoundation -i "1:0" -r 30 -video_size 1440x900 -b:v 6M -pix_fmt yuv420p webapp/public/demo/screencast.mp4
+
+.PHONY: screencast-open
+screencast-open: ## Open screencast in browser
+	@open http://localhost:8088/video/screencast.mp4 || echo "Start demo-local first"
+
+.PHONY: demo-seed
+demo-seed: ## Seed offline Scryfall cache
+	@mkdir -p data
+	@echo "📥 Downloading Scryfall seed data..."
+	@curl -sL https://api.scryfall.com/bulk-data/default-cards -o data/scryfall_bulk.json || echo "Using cached data"
+	@echo "✅ Scryfall data ready for offline mode"
+
 .DEFAULT_GOAL := help
