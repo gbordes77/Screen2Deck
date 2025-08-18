@@ -1,3 +1,17 @@
+# Screen2Deck v2.0.2 - Docker Compose Configuration
+# Profiles: core (minimal), discord (bot), full (everything)
+# 
+# Usage:
+#   docker compose --profile core up     # Start core services only
+#   docker compose --profile discord up  # Add Discord bot
+#   make dev                             # Use Makefile commands (recommended)
+#
+# Testing:
+#   make test          # Run unit + integration tests  
+#   make bench-day0    # Generate benchmark metrics
+#   make golden        # Validate export formats
+#   make parity        # Check Web/Discord parity
+
 services:
   redis:
     profiles: ["core"]
@@ -27,6 +41,8 @@ services:
       - ./backend/app:/app/app
       - ./backend/app/data:/app/app/data
     depends_on: [redis, postgres]
+    # Note: EasyOCR only, no Tesseract (CI enforced)
+    # Export endpoints are public for testing
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
