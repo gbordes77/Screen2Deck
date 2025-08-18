@@ -1,5 +1,13 @@
 # Screen2Deck Makefile - Quick commands for development
 
+# Variables
+SHELL := /bin/bash
+PYTEST_ARGS := -q --disable-warnings
+ARTIFACTS := artifacts
+VALIDATION_SET := validation_set/images
+TRUTH := validation_set/truth
+REPORT := $(ARTIFACTS)/reports
+
 .PHONY: help
 help: ## Show this help message
 	@echo "Screen2Deck - Development Commands"
@@ -80,8 +88,45 @@ lint: ## Lint Python code with ruff
 	@docker compose exec backend ruff check app/
 
 .PHONY: test
-test: ## Run backend tests
-	@docker compose exec backend pytest
+test: unit integration ## Run all tests
+
+.PHONY: unit
+unit: ## Run unit tests
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/unit $(PYTEST_ARGS)
+
+.PHONY: integration
+integration: ## Run integration tests
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/integration $(PYTEST_ARGS)
+
+.PHONY: e2e
+e2e: ## Run E2E tests
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/e2e $(PYTEST_ARGS)
+
+.PHONY: bench-day0
+bench-day0: artifacts ## Run Day0 benchmark
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && python tools/bench_runner.py --images $(VALIDATION_SET) --truth $(TRUTH) --out $(REPORT)/day0
+
+.PHONY: golden
+golden: artifacts ## Check golden exports
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && python tools/golden_check.py --out $(ARTIFACTS)/golden
+
+.PHONY: parity
+parity: artifacts ## Check web/Discord parity
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && python tools/parity_check.py --out $(ARTIFACTS)/parity
+
+.PHONY: artifacts
+artifacts: ## Create artifacts directories
+	@mkdir -p $(ARTIFACTS) $(REPORT)
+
+.PHONY: bootstrap
+bootstrap: ## Setup Python venv and install deps
+	@python3 -m venv .venv && . .venv/bin/activate && pip install -U pip wheel
+	@. .venv/bin/activate && pip install pytest pytest-cov
+
+.PHONY: dev
+dev: ## Start development environment
+	@docker compose --profile core up -d --build
+	@echo "→ Health: curl -fsS http://localhost:8080/health && echo OK"
 
 .PHONY: ci-health
 ci-health: ## Run CI health check locally

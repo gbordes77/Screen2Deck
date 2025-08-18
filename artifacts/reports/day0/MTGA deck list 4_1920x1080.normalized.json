@@ -1,0 +1,12 @@
+{
+  "main": {
+    "Bloodtithe Harvester": 4,
+    "Fable of the Mirror-Breaker": 3,
+    "Mountain": 20,
+    "Swamp": 3
+  },
+  "side": {
+    "Duress": 2,
+    "Go Blank": 3
+  }
+}

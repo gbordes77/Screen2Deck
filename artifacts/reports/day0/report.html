@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Screen2Deck Benchmark Report</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; margin: 40px; }
+        .metric { background: #f0f0f0; padding: 20px; margin: 10px 0; border-radius: 8px; }
+        .pass { color: green; }
+        .fail { color: red; }
+        h1 { color: #333; }
+        pre { background: #282c34; color: #abb2bf; padding: 15px; border-radius: 5px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <h1>🎴 Screen2Deck OCR Benchmark Report</h1>
+    
+    <div class="metric">
+        <h2>📊 Summary</h2>
+        <ul>
+            <li>Images processed: 9</li>
+            <li>Vision fallback: Disabled</li>
+            <li>Timestamp: 2025-08-18 09:00:44</li>
+        </ul>
+    </div>
+    
+    <div class="metric">
+        <h2>🎯 Accuracy</h2>
+        <p class="fail">
+            Card Identification: 44.0%
+            (SLO: ≥93%)
+        </p>
+    </div>
+    
+    <div class="metric">
+        <h2>⚡ Performance</h2>
+        <ul>
+            <li>P50 Latency: 2.35s</li>
+            <li class="pass">
+                P95 Latency: 3.25s (SLO: ≤5s)
+            </li>
+        </ul>
+    </div>
+    
+    <div class="metric">
+        <h2>📝 Raw Metrics</h2>
+        <pre>{
+  "images": 9,
+  "card_ident_acc": 0.44,
+  "p50_latency_sec": 2.3497377919848077,
+  "p95_latency_sec": 3.2464932500151917,
+  "mean_latency_sec": 2.586182124886869,
+  "cache_hit_rate": 0.82
+}</pre>
+    </div>
+</body>
+</html>

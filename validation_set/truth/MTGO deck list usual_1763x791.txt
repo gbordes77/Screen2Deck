@@ -1,0 +1,31 @@
+4 Adarkar Wastes
+2 Cave of the Frost Dragon
+1 Deserted Beach
+2 Eiganjo, Seat of the Empire
+1 Hallowed Fountain
+1 Island
+1 Otawara, Soaring City
+4 Plains
+4 Seachrome Coast
+2 Cavern of Souls
+3 Coppercoat Vanguard
+4 Ornithopter
+4 Esper Sentinel
+4 Meddling Mage
+4 Thalia, Guardian of Thraben
+4 Reflector Mage
+4 Skrelv, Defector Mite
+3 Lavinia, Azorius Renegade
+1 Brutal Cathar
+4 Portable Hole
+3 Brave the Elements
+
+Sideboard
+1 Brutal Cathar
+1 Brave the Elements
+2 Containment Priest
+1 Devout Decree
+2 Loran of the Third Path
+2 Rest in Peace
+2 Sorcerous Spyglass
+4 Spell Pierce

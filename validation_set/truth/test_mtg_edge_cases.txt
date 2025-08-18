@@ -1,0 +1,14 @@
+# Test deck with MTG edge cases
+4 Fable of the Mirror-Breaker
+3 Brazen Borrower
+2 Fire // Ice
+1 Bonecrusher Giant
+4 Thoughtseize
+4 Île
+4 Forêt
+20 Mountain
+
+Sideboard
+2 Duress
+3 Go Blank
+1 Wear // Tear

@@ -1,0 +1,18 @@
+{
+  "mtga": {
+    "equal": true,
+    "diff": null
+  },
+  "moxfield": {
+    "equal": true,
+    "diff": null
+  },
+  "archidekt": {
+    "equal": true,
+    "diff": null
+  },
+  "tappedout": {
+    "equal": true,
+    "diff": null
+  }
+}

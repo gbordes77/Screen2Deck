@@ -1,0 +1,8 @@
+{
+  "images": 9,
+  "card_ident_acc": 0.44,
+  "p50_latency_sec": 2.3497377919848077,
+  "p95_latency_sec": 3.2464932500151917,
+  "mean_latency_sec": 2.586182124886869,
+  "cache_hit_rate": 0.82
+}

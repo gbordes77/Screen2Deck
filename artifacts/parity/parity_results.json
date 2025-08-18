@@ -1,0 +1,35 @@
+{
+  "formats": {
+    "mtga": {
+      "match": true,
+      "web_hash": "f5d7272d9c5c6c7060ef25d09fc8173395c4d5afbda19a64e2a24f0ab4f1dc75",
+      "discord_hash": "f5d7272d9c5c6c7060ef25d09fc8173395c4d5afbda19a64e2a24f0ab4f1dc75",
+      "web_lines": 11,
+      "discord_lines": 11
+    },
+    "moxfield": {
+      "match": true,
+      "web_hash": "6f7ad79ac7df1edd6d619c86135ddaaeb2d0013a9cb30381c7d82be1ec9399b6",
+      "discord_hash": "6f7ad79ac7df1edd6d619c86135ddaaeb2d0013a9cb30381c7d82be1ec9399b6",
+      "web_lines": 8,
+      "discord_lines": 8
+    },
+    "archidekt": {
+      "match": true,
+      "web_hash": "66896ac32c44808d90ed9c37fc156e81d9bbc6a92e265fc5beadfe794ebbd7ae",
+      "discord_hash": "66896ac32c44808d90ed9c37fc156e81d9bbc6a92e265fc5beadfe794ebbd7ae",
+      "web_lines": 10,
+      "discord_lines": 10
+    },
+    "tappedout": {
+      "match": true,
+      "web_hash": "66896ac32c44808d90ed9c37fc156e81d9bbc6a92e265fc5beadfe794ebbd7ae",
+      "discord_hash": "66896ac32c44808d90ed9c37fc156e81d9bbc6a92e265fc5beadfe794ebbd7ae",
+      "web_lines": 10,
+      "discord_lines": 10
+    }
+  },
+  "differences": {},
+  "all_match": true,
+  "fixture_used": "fixtures/normalized_deck.json"
+}

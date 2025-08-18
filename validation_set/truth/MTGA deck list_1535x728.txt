@@ -1,0 +1,27 @@
+4 Bloodtithe Harvester
+4 Fable of the Mirror-Breaker
+4 Raffine's Informant
+4 Sheoldred, the Apocalypse
+2 Tenacious Underdog
+3 Brazen Borrower
+4 Go for the Throat
+3 Cut Down
+1 Duress
+4 Make Disappear
+1 Negate
+2 Field of Ruin
+4 Shipwreck Marsh
+4 Underground River
+6 Island
+7 Swamp
+3 Restless Reef
+
+Sideboard
+2 Duress
+1 Negate
+2 Disdainful Stroke
+2 Jace, the Perfected Mind
+2 Parasitic Grasp
+2 Path of Peril
+2 Reckoner Bankbuster
+2 Spell Pierce

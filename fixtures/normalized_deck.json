@@ -1,0 +1,14 @@
+{
+  "main": {
+    "Bloodtithe Harvester": 4,
+    "Fable of the Mirror-Breaker": 3,
+    "Thoughtseize": 4,
+    "Mountain": 20,
+    "Swamp": 4
+  },
+  "side": {
+    "Duress": 2,
+    "Go Blank": 3,
+    "Negate": 1
+  }
+}
