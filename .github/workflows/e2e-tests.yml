@@ -1,0 +1,394 @@
+name: E2E Tests (Playwright)
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      debug_enabled:
+        type: boolean
+        description: 'Run with debug logging'
+        required: false
+        default: false
+
+env:
+  WEB_URL: http://localhost:3000
+  API_URL: http://localhost:8080
+  GOLDEN_DIR: ./golden
+  DATASET_DIR: ./validation_set
+
+jobs:
+  e2e-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    
+    strategy:
+      matrix:
+        browser: [chromium, firefox, webkit]
+        
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+          
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: screen2deck
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm ci
+          npx playwright install --with-deps ${{ matrix.browser }}
+          
+      - name: Setup Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+          
+      - name: Install backend dependencies
+        working-directory: ./backend
+        run: |
+          pip install -r requirements.txt
+          pip install easyocr
+          
+      - name: Start backend
+        working-directory: ./backend
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/screen2deck
+          REDIS_URL: redis://localhost:6379
+          SCRYFALL_API_URL: https://api.scryfall.com
+          CORS_ORIGINS: http://localhost:3000
+        run: |
+          uvicorn app.main:app --host 0.0.0.0 --port 8080 &
+          sleep 10
+          curl -f http://localhost:8080/health || exit 1
+          
+      - name: Build and start webapp
+        working-directory: ./webapp
+        env:
+          NEXT_PUBLIC_API_BASE: http://localhost:8080
+        run: |
+          npm ci
+          npm run build
+          npm start &
+          sleep 10
+          curl -f http://localhost:3000 || exit 1
+          
+      - name: Run E2E tests - ${{ matrix.browser }}
+        run: |
+          npx playwright test --project=${{ matrix.browser }} --reporter=list,junit
+        env:
+          CI: true
+          ENABLE_VISION_FALLBACK: false
+          
+      - name: Upload test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-${{ matrix.browser }}
+          path: |
+            playwright-report/
+            test-results/
+            reports/
+            artifacts/
+            
+      - name: Upload screenshots on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: failure-screenshots-${{ matrix.browser }}
+          path: |
+            test-results/**/*.png
+            test-results/**/*.webm
+            
+  e2e-mobile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: screen2deck
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          
+      - name: Setup backend and webapp
+        run: |
+          # Start services in background
+          docker compose --profile core up -d
+          
+          # Wait for services
+          sleep 30
+          curl -f http://localhost:8080/health || exit 1
+          curl -f http://localhost:3000 || exit 1
+          
+      - name: Run mobile tests
+        run: |
+          npx playwright test --project=mobile --reporter=list,junit
+          
+      - name: Upload mobile test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-results-mobile
+          path: |
+            playwright-report/
+            test-results/
+            
+  accessibility-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: screen2deck
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install dependencies
+        run: |
+          npm ci
+          npm install -D axe-playwright
+          npx playwright install --with-deps chromium
+          
+      - name: Start services
+        run: |
+          docker compose --profile core up -d
+          sleep 30
+          
+      - name: Run accessibility tests
+        run: |
+          npx playwright test tests/web-e2e/suites/s9-accessibility.spec.ts --reporter=list,junit
+          
+      - name: Upload accessibility results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: accessibility-results
+          path: |
+            playwright-report/
+            test-results/
+            
+  performance-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: screen2deck
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          
+      - name: Start services
+        run: |
+          docker compose --profile core up -d
+          sleep 30
+          
+      - name: Run performance tests
+        run: |
+          npx playwright test tests/web-e2e/suites/s12-performance.spec.ts --reporter=list,junit
+        env:
+          SLO_P95_LATENCY_SEC: 5
+          SLO_ACCURACY_MIN: 0.92
+          SLO_CACHE_HIT_MIN: 0.80
+          
+      - name: Upload performance metrics
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: performance-metrics
+          path: |
+            artifacts/e2e-metrics.json
+            playwright-report/
+            
+  security-tests:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    
+    services:
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+          
+      postgres:
+        image: postgres:16-alpine
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: screen2deck
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '18'
+          
+      - name: Install Playwright
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          
+      - name: Start services
+        run: |
+          docker compose --profile core up -d
+          sleep 30
+          
+      - name: Run security tests
+        run: |
+          npx playwright test tests/web-e2e/suites/s7-security-upload.spec.ts tests/web-e2e/suites/s14-anti-xss.spec.ts --reporter=list,junit
+          
+      - name: Upload security test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: security-test-results
+          path: |
+            playwright-report/
+            test-results/
+            
+  test-summary:
+    needs: [e2e-tests, e2e-mobile, accessibility-tests, performance-tests, security-tests]
+    runs-on: ubuntu-latest
+    if: always()
+    
+    steps:
+      - name: Download all artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: all-results/
+          
+      - name: Generate summary report
+        run: |
+          echo "# E2E Test Summary" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          
+          echo "## Test Results" >> $GITHUB_STEP_SUMMARY
+          echo "| Test Suite | Status |" >> $GITHUB_STEP_SUMMARY
+          echo "|------------|--------|" >> $GITHUB_STEP_SUMMARY
+          echo "| Browser Tests | ${{ needs.e2e-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Mobile Tests | ${{ needs.e2e-mobile.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Accessibility | ${{ needs.accessibility-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Performance | ${{ needs.performance-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          echo "| Security | ${{ needs.security-tests.result }} |" >> $GITHUB_STEP_SUMMARY
+          
+          # Check for metrics
+          if [ -f "all-results/performance-metrics/artifacts/e2e-metrics.json" ]; then
+            echo "" >> $GITHUB_STEP_SUMMARY
+            echo "## Performance Metrics" >> $GITHUB_STEP_SUMMARY
+            echo '```json' >> $GITHUB_STEP_SUMMARY
+            cat all-results/performance-metrics/artifacts/e2e-metrics.json >> $GITHUB_STEP_SUMMARY
+            echo '```' >> $GITHUB_STEP_SUMMARY
+          fi
+          
+      - name: Comment on PR
+        if: github.event_name == 'pull_request'
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const fs = require('fs');
+            const summary = fs.readFileSync(process.env.GITHUB_STEP_SUMMARY, 'utf8');
+            
+            github.rest.issues.createComment({
+              issue_number: context.issue.number,
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              body: summary
+            });

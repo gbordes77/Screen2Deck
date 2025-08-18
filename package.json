@@ -1,6 +1,22 @@
 {
+  "name": "screen2deck-e2e",
+  "version": "2.0.2",
+  "description": "E2E tests for Screen2Deck",
+  "scripts": {
+    "e2e": "playwright test",
+    "e2e:all": "playwright test --project=all",
+    "e2e:ui": "playwright test tests/web-e2e",
+    "e2e:report": "playwright show-report",
+    "e2e:chromium": "playwright test --project=chromium",
+    "e2e:firefox": "playwright test --project=firefox",
+    "e2e:webkit": "playwright test --project=webkit",
+    "e2e:mobile": "playwright test --project=mobile",
+    "e2e:headed": "playwright test --headed",
+    "e2e:debug": "playwright test --debug"
+  },
   "devDependencies": {
-    "@playwright/test": "^1.54.2",
-    "axe-playwright": "^2.1.0"
+    "@playwright/test": "^1.48.0",
+    "axe-playwright": "^2.0.3",
+    "@types/node": "^20.14.0"
   }
 }
