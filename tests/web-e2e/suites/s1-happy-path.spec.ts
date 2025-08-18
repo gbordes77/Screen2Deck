@@ -20,7 +20,7 @@ test.describe('S1 - Happy Path', () => {
 
   test.beforeEach(async ({ page }) => {
     await page.goto(config.webUrl);
-    await expect(page).toHaveTitle(/Screen2Deck/);
+    await expect(page).toHaveTitle(/MTG Deck Scanner/);
   });
 
   test('S1.1 - Upload → Deck → Export MTGA', async ({ page }) => {

@@ -104,15 +104,15 @@ e2e: ## Run E2E tests (Python)
 
 .PHONY: e2e-ui
 e2e-ui: ## Run Playwright E2E tests
-	@echo "Installing dependencies..."
-	@npm ci --silent 2>/dev/null || npm ci
-	@npx playwright install --with-deps --silent 2>/dev/null || npx playwright install --with-deps
-	@echo "Running Playwright tests..."
-	@export $$(grep -v '^#' .env.e2e | xargs) && npx playwright test
+	@npm ci
+	@npx playwright install --with-deps
+	@set -a; source .env.e2e 2>/dev/null || true; set +a; npx playwright test
 
 .PHONY: e2e-smoke
 e2e-smoke: ## Run quick smoke test with Playwright
-	@export $$(grep -v '^#' .env.e2e | xargs) && npx playwright test tests/web-e2e/suites/s1-happy-path.spec.ts --project=chromium
+	@npm ci
+	@npx playwright install --with-deps
+	@set -a; source .env.e2e 2>/dev/null || true; set +a; npx playwright test tests/web-e2e/suites/s1-happy-path.spec.ts --project=chromium
 
 .PHONY: bench-day0
 bench-day0: artifacts ## Run Day0 benchmark

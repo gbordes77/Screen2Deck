@@ -31,7 +31,9 @@ export async function uploadImage(page: Page, imagePath: string): Promise<void> 
 }
 
 export async function waitForDeckReady(page: Page, timeout: number = 30000): Promise<void> {
-  await expect(page.locator('[data-testid="deck-ready"]')).toBeVisible({ timeout });
+  // Use waitFor with state instead of expect for better stability
+  const deckReady = page.locator('[data-testid="deck-ready"]');
+  await deckReady.waitFor({ state: 'visible', timeout });
 }
 
 export async function downloadExport(page: Page, format: string): Promise<string> {
