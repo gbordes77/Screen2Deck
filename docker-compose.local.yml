@@ -4,6 +4,7 @@ services:
   api:
     build: ./backend
     container_name: s2d_api
+    networks: [demo]
     environment:
       - FEATURE_VISION_FALLBACK=false
       - OCR_GPU=0
@@ -34,9 +35,11 @@ services:
   web:
     build: ./webapp
     container_name: s2d_web
+    networks: [demo]
     environment:
       - NEXT_PUBLIC_API_URL=/api
       - NEXT_PUBLIC_WS_URL=ws://localhost:8088/ws
+      - NEXT_TELEMETRY_DISABLED=1
     command: >
       sh -c "npm ci && npm run build && 
              cp -r .next/static /export/static &&
@@ -47,15 +50,18 @@ services:
   docs:
     image: squidfunk/mkdocs-material:latest
     container_name: s2d_docs
-    working_dir: /docs
+    networks: [demo]
     volumes:
       - ./docs:/docs
-      - ./_build/docs:/site
-    command: ["mkdocs", "build", "--clean"]
+      - ./_build/docs:/docs/site
+    working_dir: /docs
+    command: ["build", "--clean", "--site-dir", "/docs/site"]
 
   nginx:
     image: nginx:alpine
     container_name: s2d_gateway
+    networks: 
+      - demo
     depends_on: [ api, web, docs ]
     volumes:
       - ./ops/nginx/nginx.local.conf:/etc/nginx/nginx.conf:ro
@@ -64,7 +70,8 @@ services:
       - ./artifacts:/usr/share/nginx/html/artifacts:ro
       - ./playwright-report:/usr/share/nginx/html/report:ro
       - ./webapp/public/demo:/usr/share/nginx/html/video:ro
-    ports: [ "8088:80" ]
+    ports: 
+      - "8088:80"
     healthcheck:
       test: ["CMD", "wget", "--spider", "-q", "http://localhost:80/"]
       interval: 10s
@@ -74,6 +81,7 @@ services:
   redis:
     image: redis:7-alpine
     container_name: s2d_redis
+    networks: [demo]
     expose: [ "6379" ]
     volumes:
       - ./data/redis:/data
@@ -87,6 +95,7 @@ services:
   postgres:
     image: postgres:15-alpine
     container_name: s2d_postgres
+    networks: [demo]
     environment:
       - POSTGRES_USER=postgres
       - POSTGRES_PASSWORD=postgres
@@ -101,6 +110,8 @@ services:
       retries: 5
 
 networks:
-  default:
+  demo:
     name: s2d_local
     driver: bridge
+    # Note: internal: true empêcherait le port mapping
+    # On utilise extra_hosts pour bloquer les appels externes

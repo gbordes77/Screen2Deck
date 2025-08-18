@@ -152,11 +152,27 @@ status: ## Show service status
 	@docker compose ps
 
 # Local Demo Hub commands
+.PHONY: docs-build
+docs-build: ## Build MkDocs static documentation
+	@echo "📚 Building documentation..."
+	@docker compose -f docker-compose.local.yml run --rm docs
+	@echo "✅ Docs built in _build/docs/"
+
+.PHONY: web-build
+web-build: ## Build Next.js static web app
+	@echo "🎨 Building web UI..."
+	@docker compose -f docker-compose.local.yml run --rm web
+	@echo "✅ Web UI built in _build/web/"
+
 .PHONY: demo-local
 demo-local: ## Launch local demo hub (app/api/docs/nginx) on http://localhost:8088
 	@echo "🚀 Starting local demo hub..."
 	@mkdir -p _build/web _build/docs artifacts playwright-report webapp/public/demo data
-	@docker compose -f docker-compose.local.yml up -d --build
+	# Build statiques avant Nginx
+	@$(MAKE) web-build
+	@$(MAKE) docs-build
+	# Lancer API+Nginx (web/docs sont déjà produits sur disque)
+	@docker compose -f docker-compose.local.yml up -d --build api nginx redis postgres
 	@echo "⏳ Waiting for services to be ready..."
 	@sleep 10
 	@echo "✅ Demo Hub ready!"

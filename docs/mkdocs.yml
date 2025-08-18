@@ -49,23 +49,20 @@ markdown_extensions:
 
 nav:
   - Home: index.md
-  - Getting Started:
-      - Installation: getting-started/installation.md
-      - Quick Start: getting-started/quickstart.md
-      - Configuration: getting-started/configuration.md
-  - Architecture:
-      - Overview: architecture/overview.md
-      - OCR Pipeline: architecture/ocr-pipeline.md
-      - Export Formats: architecture/export-formats.md
+  - Documentation:
+      - API: API.md
+      - Architecture: ARCHITECTURE.md
+      - Configuration: CONFIGURATION.md
+      - Deployment: DEPLOYMENT.md
+      - Security: SECURITY.md
+      - Runbook: RUNBOOK.md
+      - Proofs: PROOFS.md
   - Blog:
       - blog/index.md
       - "How we reached 95% accuracy": blog/01-how-we-hit-95.md
-  - API Reference:
-      - Endpoints: api/endpoints.md
-      - WebSocket: api/websocket.md
-  - Testing:
-      - E2E Tests: testing/e2e.md
-      - Benchmarks: testing/benchmarks.md
+  - Policies:
+      - GDPR: GDPR_POLICY.md
+      - Vision Fallback: VISION_FALLBACK_POLICY.md
 
 extra:
   social:

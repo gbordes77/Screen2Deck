@@ -107,6 +107,15 @@ if [ "$i" -eq 15 ]; then
     echo -e "${YELLOW}⚠${NC} Rate limit not triggered (may be OK for demo)"
 fi
 
+# 6b. Test Scryfall blocking (critical for demo)
+echo -n "6b. Testing Scryfall API block... "
+if docker exec s2d_api sh -c "wget -q -T2 -O- http://api.scryfall.com 2>/dev/null || curl -sS --max-time 2 http://api.scryfall.com 2>/dev/null || true" | grep -qi 'scryfall'; then
+    echo -e "${RED}✗${NC} Scryfall reachable - NOT air-gapped!"
+    exit 1
+else
+    echo -e "${GREEN}✓${NC} Scryfall blocked (via extra_hosts)"
+fi
+
 # 7. Check CSP headers
 echo -n "7. Checking CSP headers... "
 CSP=$(curl -sI http://localhost:8088/app/ | grep -i "content-security-policy")

@@ -48,6 +48,8 @@ reports/e2e-junit.xml
 build/
 *.egg-info/
 .eggs/
+_build/
+docs/docs/
 
 # Temporary files
 *.tmp
