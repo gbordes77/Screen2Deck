@@ -13,7 +13,7 @@ import {
 
 test.describe('S9 - Accessibility', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test.beforeEach(async ({ page }) => {
     await page.goto(config.webUrl);

@@ -16,7 +16,7 @@ import {
 
 test.describe('S2 - Parity Testing', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S2.1 - UI export = API export = Golden', async ({ page }) => {
     const imagePath = testImages[0];

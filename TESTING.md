@@ -336,6 +336,24 @@ def test_normalize(input, expected):
 
 **NEW: Complete implementation of TEST_PLAN_PLAYWRIGHT.md with 14 test suites!**
 
+### Quick Start - Reproduire Localement
+
+```bash
+# 1. Démarrer les services (API + Web)
+docker compose --profile core up -d --build
+
+# 2. Charger l'environnement E2E et installer Playwright
+export $(grep -v '^#' .env.e2e | xargs)
+npm ci
+npx playwright install --with-deps
+
+# 3. Lancer un test smoke (1 seul navigateur, 1 seule suite)
+npx playwright test tests/web-e2e/suites/s1-happy-path.spec.ts --project=chromium
+
+# 4. Voir le rapport
+npx playwright show-report
+```
+
 ### Test Suites Implemented
 
 1. **S1 - Happy Path**: Upload → Deck → Export for all formats

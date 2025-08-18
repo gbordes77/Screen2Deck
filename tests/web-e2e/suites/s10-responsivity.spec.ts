@@ -13,7 +13,7 @@ import {
 
 test.describe('S10 - Responsivity', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S10.1 - Mobile upload → deck → export', async ({ browser }) => {
     // Create mobile context

@@ -1,6 +1,7 @@
 # 🎴 Screen2Deck - Production-Ready MTG Deck Scanner
 
 [![CI/CD Pipeline](https://github.com/gbordes77/Screen2Deck/actions/workflows/ci.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions)
+[![E2E Tests](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/screen2deck)
 [![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?logo=kubernetes&logoColor=white)](https://kubernetes.io)

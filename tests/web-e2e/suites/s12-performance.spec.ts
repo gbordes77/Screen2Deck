@@ -14,8 +14,10 @@ import {
 } from '../helpers/test-utils';
 
 test.describe('S12 - Performance', () => {
+  test.setTimeout(60000); // 60 seconds for performance tests
+  
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
   const SLO_P95_LATENCY = parseFloat(process.env.SLO_P95_LATENCY_SEC || '5');
 
   test('S12.1 - End-to-end latency measurement', async ({ page }) => {

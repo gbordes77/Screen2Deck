@@ -15,6 +15,9 @@ import {
 } from '../helpers/test-utils';
 
 test.describe('S5 - Vision Fallback', () => {
+  // Skip all tests if no OpenAI API key
+  test.skip(!process.env.OPENAI_API_KEY, 'OPENAI_API_KEY not set for Vision fallback');
+  
   const config = getConfig();
   const testImages = getTestImages('adversarial'); // Use harder images
 
@@ -106,7 +109,7 @@ test.describe('S5 - Vision Fallback', () => {
       (window as any).VISION_FALLBACK_CONFIDENCE_THRESHOLD = 0.1;
     });
     
-    const imagePath = getTestImages('day0')[0]; // Use easy image
+    const imagePath = getTestImages()[0]; // Use easy image
     await page.goto(config.webUrl);
     
     let fallbackUsed = false;
@@ -138,7 +141,7 @@ test.describe('S5 - Vision Fallback', () => {
       });
     });
     
-    const imagePath = testImages[0] || getTestImages('day0')[0];
+    const imagePath = testImages[0] || getTestImages()[0];
     await uploadImage(page, imagePath);
     
     // Should show error message

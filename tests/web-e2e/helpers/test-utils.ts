@@ -22,7 +22,11 @@ export function getConfig(): TestConfig {
 }
 
 export async function uploadImage(page: Page, imagePath: string): Promise<void> {
-  const fileInput = page.locator('input[type="file"]');
+  // Try data-testid first, fallback to type selector
+  let fileInput = page.locator('[data-testid="upload-input"]');
+  if (await fileInput.count() === 0) {
+    fileInput = page.locator('input[type="file"]');
+  }
   await fileInput.setInputFiles(imagePath);
 }
 
@@ -104,8 +108,12 @@ export async function checkAccessibility(page: Page): Promise<any> {
   return results.violations;
 }
 
-export function getTestImages(category: string = 'day0'): string[] {
+export function getTestImages(category: string = 'images'): string[] {
   const dir = path.join(process.cwd(), 'validation_set', category);
+  if (!fs.existsSync(dir)) {
+    console.warn(`Test images directory not found: ${dir}`);
+    return [];
+  }
   return fs.readdirSync(dir)
     .filter(f => /\.(jpg|jpeg|png|webp)$/i.test(f))
     .map(f => path.join(dir, f));

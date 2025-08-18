@@ -14,7 +14,7 @@ import {
 
 test.describe('S8 - Error Handling & UX', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
   const tempFiles: string[] = [];
 
   test.afterEach(async () => {

@@ -16,7 +16,7 @@ import {
 
 test.describe('S1 - Happy Path', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages(); // defaults to 'images'
 
   test.beforeEach(async ({ page }) => {
     await page.goto(config.webUrl);

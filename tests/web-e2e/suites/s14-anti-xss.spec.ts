@@ -67,7 +67,7 @@ test.describe('S14 - Anti-XSS Security', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -118,7 +118,7 @@ test.describe('S14 - Anti-XSS Security', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -233,7 +233,7 @@ test.describe('S14 - Anti-XSS Security', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     
     // Wait for error display
@@ -323,7 +323,7 @@ test.describe('S14 - Anti-XSS Security', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     
     // Should handle malformed JSON safely
     let errorOccurred = false;
@@ -362,7 +362,7 @@ test.describe('S14 - Anti-XSS Security', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     

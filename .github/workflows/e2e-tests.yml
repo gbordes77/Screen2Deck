@@ -13,11 +13,16 @@ on:
         required: false
         default: false
 
+concurrency:
+  group: e2e-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   WEB_URL: http://localhost:3000
   API_URL: http://localhost:8080
   GOLDEN_DIR: ./golden
   DATASET_DIR: ./validation_set
+  ENABLE_VISION_FALLBACK: "false"
 
 jobs:
   e2e-tests:
@@ -60,13 +65,16 @@ jobs:
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: '18'
+          node-version: '20'
           cache: 'npm'
           
       - name: Install dependencies
-        run: |
-          npm ci
-          npx playwright install --with-deps ${{ matrix.browser }}
+        run: npm ci
+          
+      - name: Install Playwright
+        uses: microsoft/playwright-github-action@v1
+        with:
+          browsers: ${{ matrix.browser }}
           
       - name: Setup Python
         uses: actions/setup-python@v4
@@ -110,25 +118,31 @@ jobs:
           CI: true
           ENABLE_VISION_FALLBACK: false
           
-      - name: Upload test results
+      - name: Upload Playwright report
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: playwright-results-${{ matrix.browser }}
-          path: |
-            playwright-report/
-            test-results/
-            reports/
-            artifacts/
+          name: playwright-report-${{ matrix.browser }}
+          path: playwright-report/
+          retention-days: 30
             
-      - name: Upload screenshots on failure
-        if: failure()
+      - name: Upload traces and videos
+        if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: failure-screenshots-${{ matrix.browser }}
+          name: pw-traces-${{ matrix.browser }}
+          path: test-results/
+          retention-days: 30
+          
+      - name: Upload test artifacts
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: test-artifacts-${{ matrix.browser }}
           path: |
-            test-results/**/*.png
-            test-results/**/*.webm
+            reports/
+            artifacts/
+          retention-days: 30
             
   e2e-mobile:
     runs-on: ubuntu-latest

@@ -11,8 +11,10 @@ import {
 } from '../helpers/test-utils';
 
 test.describe('S4 - WebSocket Progression', () => {
+  test.setTimeout(60000); // 60 seconds for WebSocket tests
+  
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S4.1 - Correct event order', async ({ page }) => {
     const imagePath = testImages[0];

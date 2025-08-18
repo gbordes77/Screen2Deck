@@ -63,7 +63,7 @@ test.describe('S13 - Complex Deck Cases', () => {
     });
     
     // Upload any image (mocked response)
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     if (testImages.length > 0) {
       await uploadImage(page, testImages[0]);
     } else {
@@ -116,7 +116,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -159,7 +159,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -196,7 +196,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -235,7 +235,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -287,7 +287,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -351,7 +351,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     
@@ -395,7 +395,7 @@ test.describe('S13 - Complex Deck Cases', () => {
       });
     });
     
-    const testImages = getTestImages('day0');
+    const testImages = getTestImages();
     await uploadImage(page, testImages[0] || 'dummy.jpg');
     await waitForDeckReady(page);
     

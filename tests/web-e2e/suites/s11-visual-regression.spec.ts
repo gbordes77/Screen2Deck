@@ -14,7 +14,7 @@ import {
 
 test.describe('S11 - Visual Regression', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S11.1 - Deck panel screenshot', async ({ page }) => {
     const imagePath = testImages[0];

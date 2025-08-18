@@ -14,7 +14,7 @@ import {
 
 test.describe('S6 - Offline Scryfall', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S6.1 - Works with Scryfall blocked', async ({ page }) => {
     const imagePath = testImages[0];

@@ -14,7 +14,7 @@ import {
 
 test.describe('S3 - Idempotence', () => {
   const config = getConfig();
-  const testImages = getTestImages('day0');
+  const testImages = getTestImages();
 
   test('S3.1 - Re-upload same file is near-instant', async ({ page }) => {
     const imagePath = testImages[0];
