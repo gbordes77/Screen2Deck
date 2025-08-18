@@ -38,6 +38,12 @@ coverage/
 htmlcov/
 .pytest_cache/
 
+# Playwright
+playwright-report/
+test-results/
+reports/e2e-junit.xml
+*.trace.zip
+
 # Build artifacts
 build/
 *.egg-info/

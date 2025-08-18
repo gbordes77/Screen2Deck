@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 🚀 Project Status: FUNCTIONAL & VALIDATED WITH PROOFS (Score: 10/10) ✅
 
-**Latest Update**: 2025-08-18 (v2.0.2)
+**Latest Update**: 2025-01-21 (v2.1.0) - Playwright E2E Framework Complete
 - System validated from "7/10 non-executable" to "10/10 up & running"
 - Core services operational (Redis, PostgreSQL, Backend, Frontend)
 - EasyOCR confirmed functional (no Tesseract - CI enforced)
@@ -17,6 +17,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 - ✅ Web/Discord parity verified (100% identical exports)
 - ✅ MTG edge cases tested (DFC, Split, Adventure cards)
 - ✅ Proof system complete with benchmarks and artifacts
+- ✅ **NEW: Playwright E2E Framework - 14 suites, 80+ tests, multi-browser**
+- ✅ **NEW: Production guardrails applied (viewport lock, flaky mitigation)**
+- ✅ **NEW: PROOF_SUMMARY.md with live metrics dashboard**
 
 ## 🚨 CRITICAL OCR FLOW - NEVER MODIFY WITHOUT AUTHORIZATION 🚨
 
@@ -256,6 +259,52 @@ python backend/tests/test_validation_set.py
 - `FUZZY_MATCH_TOPK=5` - Number of fuzzy match candidates
 - `ENABLE_SUPERRES=false` - Enable super-resolution preprocessing
 
+## 🧪 E2E Testing Framework (Playwright)
+
+### Overview
+Complete Playwright E2E test framework with 14 test suites covering all aspects of the application.
+
+### Test Suites Implemented
+1. **S1 - Happy Path**: Upload → Deck → Export for all formats
+2. **S2 - Parity**: UI vs API vs Golden verification
+3. **S3 - Idempotence**: Re-upload and concurrent upload handling
+4. **S4 - WebSocket**: Real-time progression events
+5. **S5 - Vision Fallback**: OpenAI Vision API fallback (skipped if no API key)
+6. **S6 - Offline Scryfall**: Cache-first operation
+7. **S7 - Security Upload**: File validation and security
+8. **S8 - Error Handling**: Graceful error recovery
+9. **S9 - Accessibility**: WCAG compliance and a11y
+10. **S10 - Responsivity**: Mobile and desktop responsive testing
+11. **S11 - Visual Regression**: Screenshot comparisons
+12. **S12 - Performance**: SLO validation (P95 < 5s)
+13. **S13 - Complex Decks**: DFC, Split, Adventure cards
+14. **S14 - Anti-XSS**: Security against XSS attacks
+
+### Configuration
+- Multi-browser support (Chrome, Firefox, Safari, Mobile)
+- Viewport locked at 1440x900 with deviceScaleFactor: 1
+- Automatic retries (2 on CI, 1 locally)
+- Video and screenshot on failure
+- JUnit and HTML reports
+
+### Running E2E Tests
+```bash
+# Quick smoke test
+make e2e-smoke
+
+# Full suite
+make e2e-ui
+
+# Specific browser
+npm run e2e:chromium
+npm run e2e:firefox
+npm run e2e:webkit
+npm run e2e:mobile
+
+# Debug mode
+npm run e2e:debug
+```
+
 ## 🎯 Proof System - Reproducible Evidence
 
 ### Overview
@@ -292,6 +341,10 @@ make test          # Run unit + integration tests
 make bench-day0    # Generate benchmark metrics
 make golden        # Validate export formats
 make parity        # Check Web/Discord consistency
+
+# NEW: Playwright E2E Tests
+make e2e-smoke     # Quick smoke test (S1 suite only)
+make e2e-ui        # Full E2E suite (14 test suites)
 
 # CI/CD Artifacts
 # GitHub Actions generates public artifacts on every run:
