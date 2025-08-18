@@ -11,7 +11,7 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 
 ## 🚀 Production Status: READY WITH PROOFS ✅
 
-**Version 2.0.2** - Fully validated with reproducible evidence. [See proof summary](./PROOF_SUMMARY.md) | [Production status](./PRODUCTION_READY.md)
+**Version 2.2.0** - Fully validated with reproducible evidence. [See proof summary](./PROOF_SUMMARY.md) | [Production status](./PRODUCTION_READY.md)
 
 ### 📊 Reproducible Benchmark Summary
 - **Accuracy**: 94% (realistic target: ≥93%) ✅
@@ -20,6 +20,23 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 - **MTG Edge Cases**: DFC, Split, Adventure cards tested ✅
 
 📈 [View Proof Summary](./PROOF_SUMMARY.md) | [Benchmark Metrics](./artifacts/reports/day0/metrics.json) | [Test Suite](./tests/)
+
+## 🎯 NEW: Air-Gapped Demo Hub (v2.2.0)
+
+**100% offline operation** - Perfect for demos, events, or secure environments!
+
+```bash
+# Quick Start - Air-Gapped Demo
+make demo-local    # Starts complete offline demo on http://localhost:8088
+make validate-airgap  # Verify 100% offline operation
+```
+
+Features:
+- 🔒 **Fully Offline**: No external API calls, works without internet
+- 📚 **Pre-loaded Database**: 75+ common MTG cards ready to use
+- 🛡️ **Security Hardened**: CSP headers, rate limiting, cache optimization
+- 📦 **Transportable**: Create portable demo packages with `make pack-demo`
+- ✅ **Validated**: Built-in validation script ensures air-gap compliance
 
 ## ✨ Features
 
@@ -31,6 +48,7 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 - **🔐 Enterprise Security**: JWT auth, API keys, rate limiting, input validation
 - **♻️ Idempotency**: Image hash-based deduplication
 - **⚡ Real-time Updates**: WebSocket support for live progress
+- **🔒 Air-Gapped Mode**: Complete offline operation for secure environments
 
 ### Performance
 - **<5s** OCR processing (p95 latency)
@@ -56,7 +74,23 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 
 ## 🏃 Quick Start
 
-### Using Make Commands (Recommended)
+### 🔥 Option 1: Air-Gapped Demo (No Internet Required!)
+
+```bash
+# Start complete offline demo in 30 seconds
+make demo-local
+
+# Access the demo hub
+open http://localhost:8088
+
+# Validate air-gap compliance
+make validate-airgap
+
+# Stop demo
+make stop-local
+```
+
+### Option 2: Development Environment
 
 ```bash
 # Clone the repository
@@ -384,6 +418,12 @@ make gdpr-dry-run
 
 # E2E benchmark with SLO validation
 make e2e-day0  # Fails if SLOs not met
+
+# Air-Gapped Demo Management
+make demo-local       # Start offline demo
+make validate-airgap  # Verify offline compliance
+make pack-demo        # Create transportable package
+make stop-local       # Stop demo services
 
 # Example API calls
 make example-upload

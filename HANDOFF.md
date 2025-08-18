@@ -5,10 +5,18 @@
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists. The system has been validated and brought from "7/10 non-executable" to **"10/10 up & running with reproducible proofs"** status.
 
 **Current State**: ✅ Fully functional, validated with comprehensive proof system
-**Version**: v2.0.2 (2025-08-18)
-**Latest Work**: Système de preuves reproductibles avec benchmarks, golden tests, parity checks
+**Version**: v2.2.0 (2025-01-21)
+**Latest Work**: Air-Gapped Demo Hub with 100% offline operation
 
-### 🎯 NEW: Proof System Against Criticism
+### 🔥 NEW: Air-Gapped Demo Hub (v2.2.0)
+- **100% Offline**: Complete air-gapped operation for secure environments
+- **Demo Ready**: One-command deployment on http://localhost:8088
+- **Pre-loaded Database**: 75+ common MTG cards ready to use
+- **Security Hardened**: Nginx with CSP, rate limiting, cache optimization
+- **Validation Script**: Automated air-gap compliance verification
+- **Transportable**: Create portable demo packages for events
+
+### 🎯 Proof System Against Criticism (v2.0.2)
 - **Benchmark Suite**: Real metrics (94% accuracy, 3.25s P95) - not marketing
 - **Golden Export Tests**: All 4 formats validated line-by-line
 - **Web/Discord Parity**: 100% identical exports verified
@@ -39,7 +47,25 @@ Screen2Deck is a web application that converts Magic: The Gathering card images 
 
 ## Quick Start Guide
 
-### Option 1: Using Makefile (RECOMMENDED - v2.0.2)
+### 🔥 Option 1: Air-Gapped Demo (NEW - v2.2.0)
+```bash
+# Start complete offline demo in 30 seconds
+make demo-local
+
+# Access the demo hub
+open http://localhost:8088
+
+# Validate air-gap compliance
+make validate-airgap
+
+# Create transportable package
+make pack-demo
+
+# Stop demo
+make stop-local
+```
+
+### Option 2: Development Environment
 ```bash
 # Voir toutes les commandes disponibles
 make help
@@ -129,6 +155,15 @@ ALWAYS_VERIFY_SCRYFALL=true
 ```
 
 ## Files Modified/Created
+
+### v2.2.0 Updates (2025-01-21) - Air-Gapped Demo Hub
+- **Docker Compose** (`docker-compose.local.yml`) - Network isolation config
+- **Nginx Config** (`ops/nginx/nginx.local.conf`) - Security headers, rate limiting
+- **Validation Script** (`tools/validate_airgap.sh`) - Air-gap compliance checks
+- **Pack Script** (`tools/pack_airgap_demo.sh`) - Create transportable packages
+- **Makefile** - Added demo commands (demo-local, validate-airgap, pack-demo)
+- **MkDocs** (`docs/mkdocs.yml`) - Documentation generation config
+- **Offline DB** (`data/scryfall.sqlite`) - Pre-loaded card database
 
 ### v2.0.2 Updates (2025-08-18) - Proof System
 - **Tests Suite** (`tests/unit/`, `tests/integration/`, `tests/e2e/`)
@@ -249,5 +284,5 @@ The system is now **10/10 functional** and ready for:
 
 All critical issues have been resolved, dependencies are minimal and stable, and the Docker environment is properly configured for both development and production use.
 
-**Handoff Date**: 2025-08-17
-**Status**: ✅ READY FOR DEVELOPMENT/DEPLOYMENT
+**Handoff Date**: 2025-01-21 (Updated from 2025-08-17)
+**Status**: ✅ READY FOR DEVELOPMENT/DEPLOYMENT WITH AIR-GAPPED DEMO

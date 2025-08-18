@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 
 ## 🚀 Project Status: FUNCTIONAL & VALIDATED WITH PROOFS (Score: 10/10) ✅
 
-**Latest Update**: 2025-01-21 (v2.1.0) - Playwright E2E Framework Complete
+**Latest Update**: 2025-01-21 (v2.2.0) - Air-Gapped Demo Hub Complete
 - System validated from "7/10 non-executable" to "10/10 up & running"
 - Core services operational (Redis, PostgreSQL, Backend, Frontend)
 - EasyOCR confirmed functional (no Tesseract - CI enforced)
@@ -17,9 +17,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 - ✅ Web/Discord parity verified (100% identical exports)
 - ✅ MTG edge cases tested (DFC, Split, Adventure cards)
 - ✅ Proof system complete with benchmarks and artifacts
-- ✅ **NEW: Playwright E2E Framework - 14 suites, 80+ tests, multi-browser**
-- ✅ **NEW: Production guardrails applied (viewport lock, flaky mitigation)**
-- ✅ **NEW: PROOF_SUMMARY.md with live metrics dashboard**
+- ✅ Playwright E2E Framework - 14 suites, 80+ tests, multi-browser
+- ✅ Production guardrails applied (viewport lock, flaky mitigation)
+- ✅ PROOF_SUMMARY.md with live metrics dashboard
+- ✅ **NEW: Air-Gapped Demo Hub - 100% offline operation on http://localhost:8088**
+- ✅ **NEW: Offline Scryfall database with 75 pre-loaded cards**
+- ✅ **NEW: Security hardened Nginx with CSP, rate limiting, cache**
 
 ## 🚨 CRITICAL OCR FLOW - NEVER MODIFY WITHOUT AUTHORIZATION 🚨
 
