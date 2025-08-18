@@ -56,6 +56,11 @@ build/
 
 # Data
 *.db
-*.sqlite
 *.sqlite3
 postgres_data/
+data/postgres/
+data/redis/
+data/*.sqlite-shm
+data/*.sqlite-wal
+# Keep SQLite seed
+!data/scryfall.sqlite

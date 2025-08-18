@@ -196,10 +196,11 @@ screencast-open: ## Open screencast in browser
 	@open http://localhost:8088/video/screencast.mp4 || echo "Start demo-local first"
 
 .PHONY: demo-seed
-demo-seed: ## Seed offline Scryfall cache
-	@mkdir -p data
-	@echo "📥 Downloading Scryfall seed data..."
-	@curl -sL https://api.scryfall.com/bulk-data/default-cards -o data/scryfall_bulk.json || echo "Using cached data"
-	@echo "✅ Scryfall data ready for offline mode"
+demo-seed: ## Build offline Scryfall database from local truth files (100% offline)
+	@mkdir -p data validation_set/truth
+	@echo "🔨 Building offline Scryfall database from local truth files..."
+	@python3 tools/build_offline_seed.py
+	@echo "✅ Offline database ready at data/scryfall.sqlite"
+	@echo "🔒 No network calls required - 100% air-gapped!"
 
 .DEFAULT_GOAL := help

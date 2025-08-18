@@ -9,7 +9,7 @@ services:
       - OCR_GPU=0
       - SCRYFALL_MODE=offline
       - SCRYFALL_CACHE=/data/scryfall.sqlite
-      - JWT_SECRET_KEY=local-demo-key
+      - JWT_SECRET_KEY=local-demo-key-with-32-characters-minimum-length
       - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d
       - REDIS_URL=redis://redis:6379/0
       - OCR_MIN_CONF=0.62
@@ -17,6 +17,11 @@ services:
     volumes:
       - ./data:/data
     expose: [ "8080" ]
+    extra_hosts:
+      - "api.scryfall.com:127.0.0.1"
+      - "scryfall.com:127.0.0.1"
+      - "c1.scryfall.com:127.0.0.1"
+      - "cards.scryfall.io:127.0.0.1"
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 10s
@@ -33,8 +38,9 @@ services:
       - NEXT_PUBLIC_API_URL=/api
       - NEXT_PUBLIC_WS_URL=ws://localhost:8088/ws
     command: >
-      sh -c "npm ci && npm run build && npm run export &&
-             cp -r out /export"
+      sh -c "npm ci && npm run build && 
+             cp -r .next/static /export/static &&
+             cp -r public/* /export/ 2>/dev/null || true"
     volumes:
       - ./_build/web:/export
 
