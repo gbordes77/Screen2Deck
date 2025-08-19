@@ -5,6 +5,10 @@ on:
   pull_request:
     branches: [ main ]
 
+concurrency:
+  group: e2e-online-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
   e2e:
     runs-on: ubuntu-latest
@@ -15,6 +19,7 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: '20'
+          cache: 'npm'
 
       - name: Install Playwright
         run: |
@@ -25,8 +30,10 @@ jobs:
         run: |
           docker compose --profile core build backend webapp
           docker compose --profile core up -d redis postgres backend webapp
-          sleep 10
-          curl -fsS http://localhost:8080/health
+
+      - name: Wait backend
+        run: |
+          for i in {1..30}; do curl -fsS http://localhost:8080/health && exit 0 || sleep 2; done; exit 1
 
       - name: Run E2E ONLINE
         env:
