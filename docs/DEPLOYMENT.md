@@ -1,4 +1,4 @@
-# Screen2Deck Deployment Guide
+# Screen2Deck Deployment Guide (v2.3.0 - ONLINE-ONLY)
 
 ## Table of Contents
 1. [Prerequisites](#prerequisites)
@@ -15,8 +15,9 @@
 ### System Requirements
 - **CPU**: 2+ cores (4+ recommended for production)
 - **RAM**: 4GB minimum (8GB+ recommended)
-- **Storage**: 20GB minimum
+- **Storage**: 10GB minimum (EasyOCR models ~64MB downloaded on first run)
 - **OS**: Linux (Ubuntu 20.04+), macOS, Windows with WSL2
+- **Internet**: REQUIRED - System operates 100% online
 
 ### Software Requirements
 - Docker 20.10+
@@ -34,18 +35,24 @@
 git clone https://github.com/gbordes77/Screen2Deck.git
 cd Screen2Deck
 
-# Configure environment
-cp .env.example .env
-nano .env  # Edit configuration
+# Start services (ONLINE mode)
+make up
+# Or with Docker Compose:
+docker-compose --profile core up -d
 
-# Start services
-docker-compose up -d
+# Note: First OCR request will download EasyOCR models (~64MB)
+# Models are cached in container at /root/.EasyOCR/
+
+# Test online connectivity
+make test-online
 
 # View logs
-docker-compose logs -f
+make logs
+# Or: docker-compose logs -f backend
 
 # Stop services
-docker-compose down
+make down
+# Or: docker-compose down
 ```
 
 ### Local Development Setup

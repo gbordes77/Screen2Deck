@@ -4,31 +4,29 @@
 
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists. The system has been validated with **independent truth metrics** establishing real performance baselines.
 
-**Current State**: ✅ PRODUCTION READY - Pipeline 100% Bulletproof
-**Version**: v2.2.2 (2025-08-19)
-**Latest Work**: Pipeline consolidation avec air-gap total et E2E fonctionnel
+**Current State**: ✅ PRODUCTION READY - 100% ONLINE MODE
+**Version**: v2.3.0 (2025-08-19)
+**Latest Work**: Complete evolution to ONLINE-ONLY architecture
 
-### 🚀 Pipeline 100% Bulletproof (v2.2.2)
-- ✅ **Backend corrigé**: Imports settings/idempotency/rate_limit fixés
-- ✅ **E2E fonctionnel**: De 0% (backend cassé) → 40% → 100% de réussite
-- ✅ **Modèles EasyOCR intégrés**: EN+FR dans l'image Docker, pas de download
-- ✅ **No-Net Guard**: Bloque toutes connexions externes si AIRGAP=true
-- ✅ **Health checks profonds**: /health/ocr, /health/scryfall, /health/pipeline
-- ✅ **Gate strict**: Fail-fast avec assertions et vérifications JSON
-- ✅ **Export public**: Endpoints /api/export/* sans authentification
-- ✅ **Déterminisme total**: Seeds fixes, single-threading, reproductible
+### 🌐 Architecture Evolution (v2.3.0)
+- ✅ **100% ONLINE**: Removed all offline capabilities
+- ✅ **Simplified deployment**: No pre-baking or model integration
+- ✅ **Dynamic models**: EasyOCR downloads on first use (~64MB)
+- ✅ **Scryfall API**: Direct API integration, no offline database
+- ✅ **Streamlined testing**: New `make test-online` command
+- ✅ **Export public**: Endpoints /api/export/* without authentication
+- ✅ **Determinism maintained**: Seeds, single-threading for benchmarks
 
-### 🔥 Quick Start - Pipeline 100%
+### 🔥 Quick Start - ONLINE Mode
 ```bash
-# Une seule commande pour tout valider
-make pipeline-100
+# Start all services
+make up
 
-# Test air-gap complet (prouve le offline)
-docker network disconnect bridge screen2deck-backend-1
-make pipeline-100
+# Run online E2E test
+make test-online
 
-# Gate strict avec fail-fast
-./scripts/gate_pipeline.sh
+# Check health
+make health
 ```
 
 ### 📊 Proof System Against Criticism
@@ -151,25 +149,33 @@ OCR_MIN_CONF=0.62
 ALWAYS_VERIFY_SCRYFALL=true
 ```
 
-## Architecture Overview
+## Architecture Overview (v2.3.0 - ONLINE)
 
 ```
-┌─────────────┐     ┌──────────────┐     ┌─────────────┐
-│   Next.js   │────▶│   FastAPI    │────▶│   EasyOCR   │
-│   Port 3000 │     │   Port 8080  │     │   (CPU/GPU) │
-└─────────────┘     └──────────────┘     └─────────────┘
-                            │
-                    ┌───────┴────────┐
-                    ▼                ▼
-              ┌──────────┐    ┌──────────┐
-              │  Redis   │    │PostgreSQL│
-              │Port 6379 │    │Port 5433 │
-              └──────────┘    └──────────┘
+┌─────────────┐     ┌──────────────┐     ┌─────────────────┐
+│   Next.js   │────▶│   FastAPI    │────▶│ External APIs   │
+│   Port 3000 │     │   Port 8080  │     │ • Scryfall API  │
+└─────────────┘     └──────────────┘     │ • OpenAI Vision │
+                            │              └─────────────────┘
+                            │                      │
+                    ┌───────┴────────┐             │
+                    ▼                ▼             ▼
+              ┌──────────┐    ┌──────────┐  ┌─────────────────┐
+              │  Redis   │    │PostgreSQL│  │ EasyOCR Models  │
+              │Port 6379 │    │Port 5433 │  │ (Downloaded)    │
+              └──────────┘    └──────────┘  │   ~64MB         │
+                                             └─────────────────┘
 ```
 
 ## Files Modified/Created
 
-### v2.2.1 Updates (2025-01-21) - Truth Validation System
+### v2.3.0 Updates (2025-01-21) - ONLINE-ONLY Evolution
+- **Removed offline components** - No more air-gap, offline database
+- **Simplified deployment** - No pre-baking, models download on-demand
+- **New test script** (`tests/webapp.online.js`) - Online E2E validation
+- **Makefile updated** - Added `make test-online` command
+
+### v2.2.1 Updates - Truth Validation System
 - **Determinism** (`backend/app/core/determinism.py`) - Tesseract prohibition, seeds
 - **Idempotency** (`backend/app/core/idempotency.py`) - Dynamic OCR version detection
 - **Rate Limiting** (`backend/app/core/rate_limit.py`) - 20 req/min/IP for exports

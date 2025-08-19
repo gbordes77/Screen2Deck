@@ -2,13 +2,16 @@
 
 ## Overview
 
-This guide documents the comprehensive testing framework for Screen2Deck, including unit tests, integration tests, E2E benchmarks, and proof generation tools.
+This guide documents the comprehensive testing framework for Screen2Deck v2.3.0 (ONLINE-ONLY), including unit tests, integration tests, E2E benchmarks, and proof generation tools.
 
 ## Quick Start
 
 ```bash
-# Setup environment
-make bootstrap
+# Start services (ONLINE mode)
+make up
+
+# Run online E2E test
+make test-online   # NEW: Online validation test
 
 # Run complete test suite
 make test          # All unit + integration tests
@@ -17,7 +20,7 @@ make golden        # Export format validation
 make parity        # Web/Discord consistency
 
 # Or run everything at once
-make bootstrap && make test && make bench-day0 && make golden && make parity
+make up && make test-online && make test && make golden && make parity
 ```
 
 ## Test Categories
@@ -54,10 +57,10 @@ pytest tests/unit -v
 
 Tests component interactions without full UI.
 
-- `test_pipeline_offline.py` - OCR pipeline without web interface
+- OCR pipeline testing
   - Image preprocessing
-  - OCR execution
-  - Card validation
+  - OCR execution (downloads models on first run)
+  - Card validation via Scryfall API
   - Export generation
 
 **Run Integration Tests:**
@@ -67,7 +70,23 @@ make integration
 pytest tests/integration -v
 ```
 
-### 3. End-to-End Tests (`tests/e2e/`)
+### 3. Online E2E Test (`tests/webapp.online.js`)
+
+**NEW in v2.3.0** - Complete online validation test.
+
+```bash
+make test-online
+# Or directly:
+node tests/webapp.online.js
+```
+
+Tests:
+- EasyOCR model download (first run)
+- Scryfall API connectivity
+- Full OCR pipeline online
+- Export generation
+
+### 4. End-to-End Tests (`tests/e2e/`)
 
 Full workflow validation with real metrics.
 
@@ -275,9 +294,27 @@ export ENABLE_VISION_FALLBACK=false
 # Set test confidence threshold
 export OCR_MIN_CONF=0.62
 
-# Always verify through Scryfall
+# Always verify through Scryfall (ONLINE API)
 export ALWAYS_VERIFY_SCRYFALL=true
+
+# EasyOCR will download models to ~/.EasyOCR/ on first run
 ```
+
+## 🔄 Changes in v2.3.0 (ONLINE-ONLY)
+
+### Removed Tests
+- `test_pipeline_offline.py` - No offline pipeline
+- Air-gap validation tests - No offline mode
+- Offline Scryfall tests - API-only now
+
+### Updated Tests
+- All tests now require internet connectivity
+- EasyOCR model download happens automatically
+- Scryfall validation always uses API
+
+### New Tests
+- `tests/webapp.online.js` - Online E2E validation
+- `make test-online` - Quick online test command
 
 ## Writing New Tests
 

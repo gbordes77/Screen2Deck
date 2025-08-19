@@ -2,17 +2,17 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with the Screen2Deck repository.
 
-## 🚀 Project Status: PRODUCTION READY - PIPELINE 100% BULLETPROOF ✅
+## 🚀 Project Status: PRODUCTION READY - 100% ONLINE MODE ✅
 
-**Latest Update**: 2025-08-19 (v2.2.2) - Pipeline 100% Consolidation
-- ✅ **Pipeline 100% bulletproof** avec `make pipeline-100`
-- ✅ **Air-gap total** avec No-Net Guard (bloque connexions externes)
-- ✅ **Modèles EasyOCR intégrés** dans Docker (EN+FR, pas de download runtime)
-- ✅ **Health checks profonds** (/health/ocr, /health/scryfall, /health/pipeline)
-- ✅ **Gate pipeline strict** avec fail-fast sur toute erreur
-- ✅ **Backend corrigé** (imports settings, idempotency, rate_limit)
-- ✅ **E2E tests fonctionnels** (40% → 100% de réussite)
-- Truth metrics établies: Real accuracy ~85-94%, P95 ~3-5s
+**Latest Update**: 2025-08-19 (v2.3.0) - Complete Evolution to ONLINE-ONLY
+- ✅ **100% ONLINE operation** - All offline capabilities REMOVED
+- ✅ **EasyOCR models downloaded on-demand** (~64MB on first run)
+- ✅ **Scryfall API integration** (no offline database)
+- ✅ **Simplified architecture** - No air-gap, no offline mode
+- ✅ **New test command** `make test-online` for E2E validation
+- ✅ **Backend simplified** - Removed offline components
+- ✅ **E2E tests updated** for online-only operation
+- Truth metrics maintained: Real accuracy ~85-94%, P95 ~3-5s
 - Core services operational (Redis, PostgreSQL, Backend, Frontend)
 - EasyOCR confirmed functional (Tesseract PROHIBITED - runtime enforced)
 - Export endpoints public with rate limiting (20 req/min/IP)
@@ -20,14 +20,13 @@ This file provides guidance to Claude Code (claude.ai/code) when working with th
 - Idempotency with dynamic OCR version detection
 - Deterministic mode for reproducible benchmarks
 
-### 🔥 Quick Start - Pipeline 100%
+### 🔥 Quick Start - ONLINE Mode
 ```bash
-# Une seule commande pour tout valider
-make pipeline-100
+# Start all services
+make up
 
-# Ou test air-gap complet (sans réseau)
-docker network disconnect bridge screen2deck-backend-1
-make pipeline-100
+# Run online E2E test
+make test-online
 ```
 
 ## 🚨 CRITICAL OCR FLOW - NEVER MODIFY WITHOUT AUTHORIZATION 🚨
@@ -57,8 +56,7 @@ make pipeline-100
       ↓
 5. 🔍 SCRYFALL VALIDATION (MANDATORY)
       ├─ Local fuzzy matching
-      ├─ Offline cache lookup
-      └─ Online API fallback
+      └─ Online API validation
       ↓
 6. RETURN RESULTS
       ├─ Mainboard cards
@@ -88,7 +86,7 @@ make pipeline-100
 
 ## Project Overview
 
-**Screen2Deck v2.0** - Production-ready OCR web application for converting Magic: The Gathering deck images to various digital formats (MTGA, Moxfield, Archidekt, TappedOut).
+**Screen2Deck v2.3.0** - Production-ready ONLINE OCR web application for converting Magic: The Gathering deck images to various digital formats (MTGA, Moxfield, Archidekt, TappedOut).
 
 **Current Status**: ✅ PRODUCTION READY - Enterprise-grade security, performance, and scalability implemented
 **Performance Score**: 9.5/10 - Fully optimized with <2s OCR processing
@@ -261,14 +259,15 @@ python backend/tests/test_validation_set.py
 - **Infrastructure**: Docker, Kubernetes, GitHub Actions CI/CD
 - **Monitoring**: Prometheus, OpenTelemetry, Jaeger
 
-### Data Flow
+### Data Flow (v2.3.0 - ONLINE)
 1. User uploads image via web UI
 2. Image preprocessed into 4 variants (original, denoised, binarized, sharpened)
-3. EasyOCR processes all variants with early termination
-4. Card names extracted with regex patterns
-5. Names validated via Scryfall (fuzzy match + API)
-6. Results cached and returned with export options
-7. Multiple export formats available (MTGA, Moxfield, Archidekt, TappedOut)
+3. EasyOCR downloads models if needed (~64MB, first run only)
+4. EasyOCR processes all variants with early termination
+5. Card names extracted with regex patterns
+6. Names validated via Scryfall API (ONLINE)
+7. Results cached in Redis and returned with export options
+8. Multiple export formats available (MTGA, Moxfield, Archidekt, TappedOut)
 
 ### Key API Endpoints
 - `POST /api/ocr/upload` - Upload image for OCR processing (returns jobId)
@@ -280,9 +279,9 @@ python backend/tests/test_validation_set.py
 2. **Preprocessing** → `pipeline/preprocess.py:preprocess_variants()` creates 4 image variants
 3. **OCR Execution** → `pipeline/ocr.py:run_easyocr_best_of()` runs OCR with early termination (≥85%)
 4. **Text Parsing** → `main.py` extracts quantities and card names
-5. **Card Resolution** → Two-phase validation:
+5. **Card Resolution** → Online validation:
    - Local fuzzy matching via `matching/fuzzy.py:score_candidates()`
-   - **MANDATORY** Scryfall verification via `matching/scryfall_client.py:resolve()`
+   - **MANDATORY** Scryfall API verification via `matching/scryfall_client.py:resolve()`
 6. **Export Generation** → Format-specific exporters in `exporters/` directory
 
 ### Key Components
@@ -300,6 +299,31 @@ python backend/tests/test_validation_set.py
 - `app/page.tsx`: Upload interface
 - `app/result/[jobId]/page.tsx`: Results display with progressive polling
 - `lib/api.ts`: API client functions
+
+## 🗑️ REMOVED in v2.3.0 (ONLINE-ONLY)
+
+### Removed Files
+- `backend/app/no_net_guard.py` - Air-gap network blocking
+- `backend/app/routers/health_router.py` - Offline health checks
+- `scripts/pipeline_100.sh` - Offline pipeline script
+- `scripts/gate_pipeline.sh` - Offline gate validation
+- `PIPELINE_BULLETPROOF.md` - Offline pipeline documentation
+- All offline Scryfall database files
+- Pre-baked EasyOCR models in Docker
+
+### Removed Features
+- **Air-gap mode**: No more offline operation
+- **Offline Scryfall database**: API-only now
+- **Pre-baked models**: EasyOCR downloads on-demand
+- **No-Net Guard**: Network isolation removed
+- **Pipeline 100**: Replaced with `make test-online`
+- **Demo Hub**: No offline demo mode
+
+### Removed Commands
+- `make pipeline-100` - Use `make test-online`
+- `make demo-local` - No offline demo
+- `make validate-airgap` - No air-gap validation
+- `make pack-demo` - No demo packaging
 
 ## Environment Configuration
 
@@ -326,7 +350,7 @@ Complete Playwright E2E test framework with 14 test suites covering all aspects 
 3. **S3 - Idempotence**: Re-upload and concurrent upload handling
 4. **S4 - WebSocket**: Real-time progression events
 5. **S5 - Vision Fallback**: OpenAI Vision API fallback (skipped if no API key)
-6. **S6 - Offline Scryfall**: Cache-first operation
+6. **S6 - Scryfall API**: Online API validation
 7. **S7 - Security Upload**: File validation and security
 8. **S8 - Error Handling**: Graceful error recovery
 9. **S9 - Accessibility**: WCAG compliance and a11y

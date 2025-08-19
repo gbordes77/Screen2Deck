@@ -1,6 +1,6 @@
-# 📊 Screen2Deck - Proof Summary
+# 📊 Screen2Deck - Proof Summary (v2.3.0 - ONLINE-ONLY)
 
-> Evidence-based metrics and test results for reproducible validation
+> Evidence-based metrics and test results for reproducible validation in 100% online mode
 
 **[📈 Latest CI Run](https://github.com/Gbordes77/Screen2Deck/actions)** | **[📦 Download Artifacts](https://github.com/Gbordes77/Screen2Deck/actions/artifacts)**
 
@@ -44,7 +44,7 @@ This document provides **reproducible evidence** that Screen2Deck is a functiona
 | S3 | Idempotence | 4 | 100% |
 | S4 | WebSocket | 4 | 100% |
 | S5 | Vision Fallback | 4 | Skip* |
-| S6 | Offline Scryfall | 3 | 100% |
+| S6 | Scryfall API | 3 | 100% |
 | S7 | Security Upload | 4 | 100% |
 | S8 | Error Handling | 3 | 100% |
 | S9 | Accessibility | 3 | 100% |

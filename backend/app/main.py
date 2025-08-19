@@ -8,9 +8,7 @@ import time
 from typing import Optional
 from contextlib import asynccontextmanager
 
-# Enable no-net guard VERY FIRST (before any imports that might use network)
-from .core.no_net_guard import enable_no_net
-enable_no_net()
+# ONLINE-ONLY mode - No offline support
 
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -128,11 +126,6 @@ app.mount("/metrics", metrics_app)
 
 # Include routers
 app.include_router(health.router, tags=["health"])
-try:
-    from .routers.health_router import router as health_router_v2
-    app.include_router(health_router_v2)  # Enhanced health checks at /health/*
-except ImportError:
-    pass
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(export_router, prefix="/api/export", tags=["export"])
 
@@ -199,13 +192,14 @@ async def upload_image(
             }
         }
         
-        job_key = generate_job_key(sanitized_content, pipeline_config)
+        job_key = generate_job_key(sanitized_content, **pipeline_config)
+        image_hash = metadata.get("hash", job_key[:64])  # Use full job_key as hash
         
-        # Check cache (idempotency)
+        # Check cache (idempotency) using image_hash
         if settings.USE_REDIS:
-            existing_job_id = await job_storage.find_by_key(job_key)
+            existing_job_id = await job_storage.find_by_image_hash(image_hash)
             if existing_job_id:
-                logger.info(f"Cache hit for job key {job_key[:16]}")
+                logger.info(f"Cache hit for image hash {image_hash[:16]}")
                 record_cache_access("ocr", hit=True)
                 return UploadResponse(jobId=existing_job_id, cached=True)
         

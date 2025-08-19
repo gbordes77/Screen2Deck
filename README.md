@@ -9,9 +9,9 @@
 
 Transform screenshots of Magic: The Gathering decks into importable deck lists for MTGA, Moxfield, Archidekt, and more!
 
-## 🚀 Production Status: READY WITH TRUTH METRICS ✅
+## 🚀 Production Status: ONLINE-ONLY MODE ✅
 
-**Version 2.2.1** - Gate Final Complete with independent validation. [See proof summary](./PROOF_SUMMARY.md) | [Gate final](./GATE_FINAL_SUMMARY.md)
+**Version 2.3.0** - Complete evolution to 100% ONLINE operation. [See proof summary](./PROOF_SUMMARY.md)
 
 ### 📊 Real Performance Metrics (Client-Side Measured)
 - **Accuracy**: 85-94% fuzzy match (realistic for OCR, target: ≥85%) ✅
@@ -25,34 +25,34 @@ Run this single command for production readiness decision based on objective thr
 
 📈 [View Truth Metrics](./artifacts/reports/gate_final.json) | [CI Artifacts](https://github.com/gbordes77/Screen2Deck/actions) | [Test Suite](./tests/)
 
-## 🎯 NEW: Air-Gapped Demo Hub (v2.2.0)
+## 🌐 Architecture: 100% ONLINE
 
-**100% offline operation** - Perfect for demos, events, or secure environments!
+**Simplified Architecture** - Streamlined for cloud-native deployment!
 
 ```bash
-# Quick Start - Air-Gapped Demo
-make demo-local    # Starts complete offline demo on http://localhost:8088
-make validate-airgap  # Verify 100% offline operation
+# Quick Start - Online Mode
+make test-online    # Run E2E tests in online mode
+make up            # Start all services
 ```
 
 Features:
-- 🔒 **Fully Offline**: No external API calls, works without internet
-- 📚 **Pre-loaded Database**: 75+ common MTG cards ready to use
-- 🛡️ **Security Hardened**: CSP headers, rate limiting, cache optimization
-- 📦 **Transportable**: Create portable demo packages with `make pack-demo`
-- ✅ **Validated**: Built-in validation script ensures air-gap compliance
+- 🌐 **Always Online**: Direct integration with Scryfall API
+- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB)
+- ⚡ **Real-time Updates**: Always current card database
+- 🚀 **Simplified Deployment**: No pre-baking or offline setup needed
+- ✅ **Validated**: Comprehensive online testing suite
 
 ## ✨ Features
 
 ### Core Functionality
 - **📸 Advanced OCR**: Multi-variant processing with EasyOCR + [OpenAI Vision fallback](./docs/VISION_FALLBACK_POLICY.md)
-- **🔍 Smart Matching**: 95%+ accuracy with Scryfall offline-first cache
+- **🔍 Smart Matching**: 95%+ accuracy with Scryfall API
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
 - **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md)) ✅
 - **🔐 Enterprise Security**: JWT auth, API keys, rate limiting, input validation
 - **♻️ Idempotency**: Image hash-based deduplication
 - **⚡ Real-time Updates**: WebSocket support for live progress
-- **🔒 Air-Gapped Mode**: Complete offline operation for secure environments
+- **🌐 Cloud-Native**: Optimized for online deployment
 
 ### Performance (Truth Metrics - Not Marketing)
 - **3-5s** P95 latency (client-side measured, realistic)
@@ -104,7 +104,7 @@ python tools/benchmark_independent.py
 - Single-threaded execution for benchmarks
 - Idempotency with OCR version detection
 - Tesseract prohibition (runtime enforced)
-- Offline Scryfall for consistent results
+- Consistent API responses with retries
 
 ## 📋 Prerequisites
 
@@ -114,39 +114,60 @@ python tools/benchmark_independent.py
 - PostgreSQL (optional, for user management)
 - **NOT Tesseract** (prohibited, EasyOCR only)
 
-## 🏃 Quick Start
+## 🏗️ Architecture (v2.3.0 - ONLINE-ONLY)
 
-### 🔥 Option 1: Air-Gapped Demo (No Internet Required!)
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    Screen2Deck v2.3.0                       │
+│                  100% ONLINE Architecture                   │
+└─────────────────────────────────────────────────────────────┘
 
-```bash
-# Start complete offline demo in 30 seconds
-make demo-local
+┌──────────────┐     ┌──────────────┐     ┌──────────────────┐
+│   Frontend   │────▶│   Backend    │────▶│  External APIs   │
+│  (Next.js)   │     │  (FastAPI)   │     │                  │
+│  Port: 3000  │     │  Port: 8080  │     │ • Scryfall API   │
+└──────────────┘     └──────────────┘     │ • OpenAI Vision  │
+                            │              └──────────────────┘
+                            │                       │
+                            ▼                       │
+                     ┌──────────────┐              │
+                     │    Redis     │              │
+                     │  Port: 6379  │              │
+                     └──────────────┘              │
+                            │                       │
+                            ▼                       ▼
+                     ┌──────────────┐     ┌──────────────────┐
+                     │  PostgreSQL  │     │   EasyOCR Models │
+                     │  Port: 5433  │     │  (Downloaded)    │
+                     └──────────────┘     │    ~64MB         │
+                                          └──────────────────┘
 
-# Access the demo hub
-open http://localhost:8088
-
-# Validate air-gap compliance
-make validate-airgap
-
-# Stop demo
-make stop-local
+Data Flow:
+1. Upload Image → Frontend → Backend
+2. Backend → Download EasyOCR models (first run)
+3. Process with EasyOCR → Extract card names
+4. Validate via Scryfall API (online)
+5. Cache results in Redis
+6. Return formatted deck list
 ```
 
-### Option 2: Development Environment
+## 🏃 Quick Start
+
+### Option 1: Docker Environment (Recommended)
 
 ```bash
 # Clone the repository
 git clone https://github.com/gbordes77/Screen2Deck.git
 cd Screen2Deck
 
-# Generate secure secrets for production
-make generate-secrets > .env.production
+# Start all services (ONLINE mode)
+make up
 
-# Start development environment
-make dev
+# First run downloads EasyOCR models (~64MB)
+# This happens automatically on first OCR request
 
-# Run E2E benchmarks (validates SLOs)
-make bench-day0    # Generates artifacts/reports/day0/metrics.json
+# Run online E2E test
+make test-online
 
 # Run complete proof suite
 make test          # Unit + integration tests
@@ -175,7 +196,7 @@ docker-compose -f docker-compose.gpu.yml up -d
 docker-compose -f docker-compose.prod.yml up -d
 ```
 
-### Local Development
+### Option 2: Local Development
 
 ```bash
 # Backend setup
@@ -184,9 +205,8 @@ python -m venv venv
 source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 
-# Configure environment
-cp .env.example .env
-nano .env  # Update settings
+# Note: EasyOCR models will be downloaded on first use (~64MB)
+# Models are cached in ~/.EasyOCR/
 
 # Start Redis
 redis-server

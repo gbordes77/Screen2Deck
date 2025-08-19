@@ -5,6 +5,30 @@ All notable changes to Screen2Deck will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [2.3.0] - 2025-01-21 - ONLINE-ONLY Evolution
+
+### Changed
+- **BREAKING**: Complete removal of offline capabilities
+- **Architecture**: Simplified to 100% online operation
+- **EasyOCR**: Models now downloaded on-demand (~64MB)
+- **Scryfall**: Direct API integration only (no offline database)
+- **Testing**: New `make test-online` command for online validation
+- **Deployment**: Simplified without pre-baking or model integration
+
+### Removed
+- All offline mode components
+- Air-gap functionality
+- Pre-baked EasyOCR models in Docker
+- Offline Scryfall database
+- No-Net Guard network isolation
+- Files: `no_net_guard.py`, `health_router.py`, `pipeline_100.sh`, `gate_pipeline.sh`
+- Commands: `make pipeline-100`, `make demo-local`, `make validate-airgap`
+
+### Added
+- New test script: `tests/webapp.online.js`
+- Online E2E test command: `make test-online`
+- Automatic EasyOCR model download on first use
+
 ## [2.0.0] - 2025-08-17
 
 ### Added

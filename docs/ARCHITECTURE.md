@@ -1,8 +1,8 @@
 # 🏗️ Screen2Deck Architecture Documentation
 
-## System Overview
+## System Overview (v2.3.0 - ONLINE-ONLY)
 
-Screen2Deck is a modern, microservices-oriented application built with scalability, security, and performance in mind. The system follows cloud-native principles and is designed for containerized deployment.
+Screen2Deck is a modern, cloud-native application built for 100% online operation. The system has been simplified by removing all offline capabilities, making deployment and maintenance easier while ensuring always-current card data.
 
 ## High-Level Architecture
 
@@ -23,14 +23,14 @@ graph TB
     end
     
     subgraph "Data Layer"
-        REDIS[(Redis)]
+        REDIS[(Redis Cache)]
         POSTGRES[(PostgreSQL)]
-        SQLITE[(SQLite Cache)]
+        MODELS[EasyOCR Models<br/>Downloaded on-demand]
     end
     
-    subgraph "External Services"
-        SCRYFALL[Scryfall API]
-        OPENAI[OpenAI Vision]
+    subgraph "External Services - REQUIRED"
+        SCRYFALL[Scryfall API<br/>ONLINE ONLY]
+        OPENAI[OpenAI Vision<br/>Optional Fallback]
     end
     
     WEB --> NGINX
@@ -38,11 +38,11 @@ graph TB
     NGINX --> FASTAPI
     FASTAPI --> REDIS
     FASTAPI --> POSTGRES
-    FASTAPI --> SQLITE
+    FASTAPI --> MODELS
     FASTAPI --> CELERY
     CELERY --> REDIS
-    FASTAPI --> SCRYFALL
-    FASTAPI --> OPENAI
+    FASTAPI -.->|Always Online| SCRYFALL
+    FASTAPI -.->|Optional| OPENAI
 ```
 
 ## Component Architecture

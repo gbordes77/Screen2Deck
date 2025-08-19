@@ -2,9 +2,9 @@
 # Script de démarrage pour Screen2Deck (MTG Deck Scanner)
 set -euo pipefail
 
-echo "🎯 MTG Deck Scanner - Screen2Deck v2.0.2"
+echo "🎯 MTG Deck Scanner - Screen2Deck v2.3.0"
 echo "========================================="
-echo "Now with reproducible proof system!"
+echo "100% ONLINE MODE - Simplified architecture!"
 echo ""
 
 # Configuration - NOUVEAU CHEMIN
@@ -31,16 +31,10 @@ ENABLE_SUPERRES=false
 OCR_MIN_CONF=0.62
 OCR_MIN_LINES=10
 
-# Scryfall (toujours vérifier les noms)
+# Scryfall (ONLINE API ONLY)
 ALWAYS_VERIFY_SCRYFALL=true
-ENABLE_SCRYFALL_ONLINE_FALLBACK=true
 SCRYFALL_API_TIMEOUT=5
 SCRYFALL_API_RATE_LIMIT_MS=120
-
-# Cache & bulk
-SCRYFALL_DB=./app/data/scryfall_cache.sqlite
-SCRYFALL_BULK_PATH=./app/data/scryfall-default-cards.json
-SCRYFALL_TIMEOUT=5
 
 # Taille & fuzzy
 MAX_IMAGE_MB=8
