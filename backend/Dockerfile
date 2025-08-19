@@ -52,9 +52,28 @@ USER screen2deck
 # Install Python dependencies
 RUN pip install --user --no-cache-dir -r requirements.txt
 
-# Pre-download EasyOCR models for faster cold starts (English only)
-# This adds ~700MB to image but eliminates runtime download
-RUN python -c "import easyocr; easyocr.Reader(['en'], gpu=False, verbose=False)" || true
+# --- EasyOCR models baked-in ---
+ENV EASYOCR_MODEL_DIR=/opt/easyocr
+USER root
+RUN mkdir -p /opt/easyocr && chown -R screen2deck:screen2deck /opt/easyocr
+USER screen2deck
+RUN python - <<'PY'
+import easyocr, os
+os.makedirs("/opt/easyocr", exist_ok=True)
+# Langues utiles MTGA/MTGO: anglais majoritaire + FR (accents)
+reader = easyocr.Reader(['en','fr'], gpu=False, model_storage_directory="/opt/easyocr", download_enabled=True)
+# petit run pour forcer le chargement
+try:
+    _ = reader.readtext('data:image/png;base64,iVBORw0KGgo=', detail=0)
+except:
+    pass
+print("EasyOCR models cached in /opt/easyocr")
+PY
+
+# --- Scryfall offline snapshot baked-in ---
+USER root
+RUN mkdir -p /opt/scryfall && chown -R screen2deck:screen2deck /opt/scryfall
+USER screen2deck
 
 # Copy application code
 COPY --chown=screen2deck:screen2deck app ./app

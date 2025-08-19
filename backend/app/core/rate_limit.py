@@ -11,8 +11,8 @@ import redis
 from fastapi import Request, HTTPException
 from fastapi.responses import JSONResponse
 
-from app.config import settings
-from app.core.telemetry import logger
+from ..config import settings
+from ..telemetry import logger
 
 # Redis client for distributed rate limiting
 redis_client = None

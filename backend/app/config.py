@@ -52,3 +52,6 @@ class Settings:
 @lru_cache
 def get_settings():
     return Settings()
+
+# ⚠️ Alias de compatibilité : permet `from app.config import settings`
+settings = get_settings()

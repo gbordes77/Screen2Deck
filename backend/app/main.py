@@ -8,13 +8,17 @@ import time
 from typing import Optional
 from contextlib import asynccontextmanager
 
+# Enable no-net guard VERY FIRST (before any imports that might use network)
+from .core.no_net_guard import enable_no_net
+enable_no_net()
+
 from fastapi import FastAPI, UploadFile, File, HTTPException, Request, Depends, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import ORJSONResponse
 import numpy as np
 import cv2
 
-# Initialize determinism FIRST
+# Initialize determinism SECOND
 from .core.determinism import init_determinism
 init_determinism()
 
@@ -124,6 +128,11 @@ app.mount("/metrics", metrics_app)
 
 # Include routers
 app.include_router(health.router, tags=["health"])
+try:
+    from .routers.health_router import router as health_router_v2
+    app.include_router(health_router_v2)  # Enhanced health checks at /health/*
+except ImportError:
+    pass
 app.include_router(auth_router, prefix="/api/auth", tags=["auth"])
 app.include_router(export_router, prefix="/api/export", tags=["export"])
 

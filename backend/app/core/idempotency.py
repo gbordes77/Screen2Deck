@@ -12,12 +12,46 @@ from datetime import datetime, timedelta
 import redis
 from redis.exceptions import LockError
 
-from app.config import settings
-from app.core.telemetry import logger
-from app.core.metrics import cache_hit_total, cache_miss_total
+from ..config import get_settings
+from ..telemetry import logger
+
+# Get settings instance
+settings = get_settings()
+
+# Metrics placeholders (if not available)
+try:
+    from .metrics import cache_hit_total, cache_miss_total
+except ImportError:
+    # Create dummy metrics if not available
+    class DummyMetric:
+        def inc(self): pass
+    cache_hit_total = DummyMetric()
+    cache_miss_total = DummyMetric()
 
 # Redis client for idempotency
 redis_client = redis.from_url(str(settings.REDIS_URL)) if settings.USE_REDIS else None
+
+
+def generate_job_key(image_content: bytes, **kwargs) -> str:
+    """Generate a deterministic job key from image content."""
+    hasher = hashlib.sha256()
+    hasher.update(image_content)
+    return f"job_{hasher.hexdigest()[:16]}"
+
+
+def verify_idempotency(job_key: str) -> Optional[Dict[str, Any]]:
+    """Check if a job with this key already exists."""
+    if not redis_client:
+        return None
+    
+    try:
+        cached = redis_client.get(f"idempotency:{job_key}")
+        if cached:
+            return json.loads(cached)
+    except Exception as e:
+        logger.warning(f"Idempotency check failed: {e}")
+    
+    return None
 
 
 class IdempotencyKey:

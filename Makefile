@@ -14,6 +14,10 @@ help: ## Show this help message
 	@echo ""
 	@grep -E '^[a-zA-Z_-]+:.*?## .*$$' $(MAKEFILE_LIST) | sort | awk 'BEGIN {FS = ":.*?## "}; {printf "\033[36m%-20s\033[0m %s\n", $$1, $$2}'
 
+.PHONY: pipeline-100
+pipeline-100: ## Build → start → self-test → E2E UI (100% pipeline test)
+	@./scripts/pipeline_100.sh
+
 .PHONY: up-core
 up-core: ## Start Redis, Postgres, Backend (core services)
 	@docker compose --profile core up -d redis postgres backend
