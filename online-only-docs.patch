@@ -1,0 +1,227 @@
+diff --git a/README.md b/README.md
+index 0000000..0000001 100644
+--- a/README.md
++++ b/README.md
+@@ -1,40 +1,120 @@
+-# Screen2Deck
++# Screen2Deck — v2.3.0 (ONLINE-only)
+ 
+-Scanner de decklists MTGA/MTGO à partir de screenshots.
++Scanner de decklists MTGA/MTGO à partir de **screenshots**, 100% **ONLINE** :
++- OCR via **EasyOCR** (téléchargement des modèles à la demande)
++- Résolution des cartes via **Scryfall API** (en ligne)
++- Exports conformes : **MTGA / Moxfield / Archidekt / TappedOut**
+ 
+-**Nouveau (v2.2.x)** : mode démo air-gapped, base Scryfall offline, healthchecks OCR/Scryfall/pipeline…
++> 🔁 Changement majeur : **suppression complète** de tout mode offline/air-gap.
++> Tesseract reste **interdit** (non installé, non utilisé).
+ 
+ ## Démarrage rapide
+ 
+ ```bash
+-# Stack de base
++# Démarrer la stack (ONLINE)
+ docker compose --profile core up -d redis postgres backend webapp
+ 
+-# Vérifier (API & Front)
++# Vérifier
+ curl -fsS http://localhost:8080/health | python3 -m json.tool
+ curl -sI http://localhost:3000 | head -1
+ ```
+ 
++### Test E2E (ONLINE)
++```bash
++# Test Playwright 100% ONLINE (upload réel → OCR → résultat)
++make test-online
++# équivalent
++node tests/webapp.online.js
++```
++
+ ## Architecture (vue rapide)
+ 
+-Frontend (Next.js) ←→ Backend (FastAPI) ←→ OCR (EasyOCR) + Scryfall
++Frontend (Next.js) ←→ Backend (FastAPI) ←→ EasyOCR (modèles en ligne) ←→ Scryfall API
++
++Pour le schéma détaillé, voir `ARCHITECTURE.md`.
+ 
+ ## Contraintes
+ 
+ - Interdiction de **Tesseract** (non installé, non utilisé)
+ - Conformité stricte des exports (goldens)
+ 
+-## Modes de fonctionnement
+-- Air-gapped/offline (démo)
+-- Online (prod)
++## Modes de fonctionnement
++**Online uniquement.**
++Tous les artefacts offline (air-gap, DB Scryfall locale, pré-intégration des modèles) ont été retirés.
+ 
+ ## Tests
+ 
+-Consultez `TESTING.md` et les scripts Playwright pour les scénarios E2E.
++Consultez `TESTING.md` pour le scénario E2E ONLINE et les images de test.
+ 
+ ## Dossiers utiles
+ 
+ - `validation_set/images/` — images de test
+ - `tests/` — Playwright E2E
++
++## Démo à distance (conseil)
++- Mettre front & API sous un même domaine via reverse-proxy (ex. `/api` → backend, `/` → front).
++- Si domaines distincts, renseigner `CORS_ORIGINS`.
++
++## Sécurité (résumé)
++- Limiter la taille d'upload (10–12 MB) & les extensions (.png,.jpg,.jpeg,.webp)
++- Rate-limit côté proxy (ex. 60 req/min/IP)
++- Logs structurés (jobId, latence OCR, erreurs typées)
+ 
+-## Notes
+-- Voir README v2.2.x pour le mode air-gapped.
++## Notes de version
++- Voir `CHANGELOG.md` — entrée v2.3.0 (ONLINE-only)
++
++---
++
++### Nettoyage par rapport aux versions antérieures
++- ❌ **Supprimé** : air-gap/offline, no_net_guard, healthchecks OCR/Scryfall/pipeline synthétiques, DB Scryfall locale, modèles EasyOCR pré-intégrés, scripts pipeline_100.sh / gate_pipeline.sh
++- ✅ **Ajouté** : `make test-online`, doc & diagramme ONLINE-only
+diff --git a/ARCHITECTURE.md b/ARCHITECTURE.md
+new file mode 100644
+index 0000000..1111111
+--- /dev/null
++++ b/ARCHITECTURE.md
+@@ -0,0 +1,55 @@
++# ARCHITECTURE — ONLINE-only (v2.3.0)
++
++```mermaid
++flowchart LR
++  U[User Browser] -->|HTTPS /| FE[Next.js WebApp]
++  FE -->|/api/*| BE[FastAPI Backend]
++  BE -->|HTTP| OCR[EasyOCR (models on-demand)]
++  BE -->|HTTPS| SF[Scryfall API]
++  BE -->|Redis| R[(Redis)]
++  BE -->|SQL| PG[(PostgreSQL)]
++```
++
++## Rôles
++- **WebApp** : upload image, suivi job, rendu résultats, export
++- **Backend** : pipeline OCR → parse → normalisation (Scryfall API) → validation → export
++- **EasyOCR** : téléchargement des modèles **à la demande** (en/ fr)
++- **Scryfall API** : résolution exacte, sémantique cartes
++- **Redis** : cache, idempotency (hash image → jobId)
++- **PostgreSQL** : persistance jobs/résultats (si activée)
++
++## Endpoints clés
++- `POST /api/ocr/upload` → `{ jobId }`
++- `GET /api/ocr/status/:jobId` → `{ state, result? }`
++- `POST /api/export/:target` → export textuel conforme
++- `GET /health` → statut simple
++
++## Sécurité / Opérations
++- Même domaine via reverse-proxy recommandé (évite CORS)
++- Limites: upload (taille, extensions), rate-limit proxy
++- Logs JSON: traceId/jobId, latence, erreurs typées
+diff --git a/TESTING.md b/TESTING.md
+new file mode 100644
+index 0000000..2222222
+--- /dev/null
++++ b/TESTING.md
+@@ -0,0 +1,60 @@
++# TESTING — E2E ONLINE (v2.3.0)
++
++## Lancer les services
++```bash
++docker compose --profile core up -d redis postgres backend webapp
++curl -fsS http://localhost:8080/health | python3 -m json.tool
++curl -sI http://localhost:3000 | head -1
++```
++
++## Test E2E (Playwright)
++```bash
++make test-online
++# ou
++node tests/webapp.online.js
++```
++
++### Ce que vérifie le test
++1. Ouverture UI
++2. Upload d'une image (depuis `validation_set/images/`)
++3. Clic sur le bouton d'analyse (FR/EN)
++4. `POST /api/ocr/upload` → récupère `jobId`
++5. Poll `GET /api/ocr/status/:jobId` jusqu'à `done`
++6. Présence d'un résultat/export dans l'UI
++
++### Images de test conseillées
++- `validation_set/images/MTGA deck list_1535x728.jpeg`
++- `validation_set/images/MTGA deck list special_1334x886.jpeg`
++- `validation_set/images/MTGO deck list usual_1763x791.jpeg`
++
++## Dépannage rapide
++- **Pas de redirection /result/** : inspecter la réponse d'upload (doit renvoyer `{ jobId }`)
++- **OCR très lent au 1er run** : téléchargement initial des modèles EasyOCR ; relancer une 2e fois
++- **Résultat vide** : essayer une image du set ci-dessus ; consulter les logs backend
+diff --git a/CHANGELOG.md b/CHANGELOG.md
+index 3333333..4444444 100644
+--- a/CHANGELOG.md
++++ b/CHANGELOG.md
+@@ -1,3 +1,20 @@
+ # Changelog
+ 
++## v2.3.0 — ONLINE-only
++**Added**
++- Test E2E ONLINE : `make test-online` (ou `node tests/webapp.online.js`)
++- Docs unifiées ONLINE : README, ARCHITECTURE, TESTING
++
++**Changed**
++- EasyOCR : `download_enabled: true` (modèles téléchargés à la demande)
++- Résolution cartes : **Scryfall API** (online)
++
++**Removed**
++- Tous les éléments offline/air-gap :
++  - no_net_guard, healthchecks OCR/Scryfall/Pipeline synthétiques
++  - DB Scryfall locale
++  - modèles EasyOCR pré-intégrés
++  - scripts `pipeline_100.sh`, `gate_pipeline.sh`
++
+ ## v2.2.x
+ - …
+diff --git a/.github/workflows/e2e-online.yml b/.github/workflows/e2e-online.yml
+new file mode 100644
+index 0000000..5555555
+--- /dev/null
++++ b/.github/workflows/e2e-online.yml
+@@ -0,0 +1,53 @@
++name: e2e-online
++on:
++  push:
++    branches: [ main ]
++  pull_request:
++    branches: [ main ]
++
++jobs:
++  e2e:
++    runs-on: ubuntu-latest
++    steps:
++      - uses: actions/checkout@v4
++
++      - name: Setup Node
++        uses: actions/setup-node@v4
++        with:
++          node-version: '20'
++
++      - name: Install Playwright
++        run: |
++          npm ci || npm i
++          npx playwright install --with-deps
++
++      - name: Docker Compose Up
++        run: |
++          docker compose --profile core build backend webapp
++          docker compose --profile core up -d redis postgres backend webapp
++          sleep 10
++          curl -fsS http://localhost:8080/health
++
++      - name: Run E2E ONLINE
++        env:
++          FRONT_URL: http://localhost:3000
++        run: node tests/webapp.online.js

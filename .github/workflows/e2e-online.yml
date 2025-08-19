@@ -1,0 +1,34 @@
+name: e2e-online
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Playwright
+        run: |
+          npm ci || npm i
+          npx playwright install --with-deps
+
+      - name: Docker Compose Up
+        run: |
+          docker compose --profile core build backend webapp
+          docker compose --profile core up -d redis postgres backend webapp
+          sleep 10
+          curl -fsS http://localhost:8080/health
+
+      - name: Run E2E ONLINE
+        env:
+          FRONT_URL: http://localhost:3000
+        run: node tests/webapp.online.js
