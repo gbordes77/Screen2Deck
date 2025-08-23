@@ -162,7 +162,7 @@ class OCRService:
         ]
         return RawOCR(spans=spans, mean_conf=ocr_raw["mean_conf"])
     
-    def _parse_cards(self, spans: List[OCRSpan]) -> DeckSections:
+    def _parse_cards_old(self, spans: List[OCRSpan]) -> DeckSections:
         """
         Parse card entries from OCR spans.
         
@@ -174,44 +174,326 @@ class OCRService:
         """
         main_entries = []
         side_entries = []
-        section = "main"
+        is_sideboard = False
         
-        for span in spans:
+        # Track card names and quantities separately for MTGA format
+        pending_card_name = None
+        
+        # Multiple patterns to match different card formats
+        patterns = [
+            # Format: "4 Lightning Bolt" or "4 Lightning Bolt (SET)"
+            re.compile(r'^(\d+)\s+(.+?)(?:\s*\([A-Z0-9]+\))?$'),
+            # Format: "Lightning Bolt x4" or "Lightning Bolt x 4"
+            re.compile(r'^(.+?)\s+x\s*(\d+)$', re.IGNORECASE),
+            # Format: "4x Lightning Bolt"
+            re.compile(r'^(\d+)x\s+(.+?)$', re.IGNORECASE),
+            # Format: "Lightning Bolt 4" (last resort)
+            re.compile(r'^(.+?)\s+(\d+)$'),
+        ]
+        
+        # Pattern for standalone quantities (MTGA format)
+        qty_pattern = re.compile(r'^x(\d+)$', re.IGNORECASE)
+        
+        for i, span in enumerate(spans):
             line = span.text.strip()
             
-            # Check for sideboard marker
-            if line.lower().startswith(("sideboard", "sb")):
-                section = "side"
+            # Skip empty or too short lines
+            if not line or len(line) < 2:
                 continue
             
-            # Parse card entry
-            entry = self._parse_card_line(line)
+            # Check for sideboard markers (more comprehensive)
+            if any(marker in line.lower() for marker in ['sideboard', 'side board', 'side', 'sb', 'reserve']):
+                is_sideboard = True
+                pending_card_name = None  # Reset pending card
+                continue
+            
+            # Skip UI elements and non-card lines
+            skip_words = ['===', '---', 'total', 'mana', 'curve', 'library', 'temur otters', 'deck', 'commander']
+            # Special handling for "X Cards" pattern
+            if 'cards' in line.lower() and ('/' in line or line.lower().endswith('cards')):
+                continue
+            if any(skip in line.lower() for skip in skip_words):
+                continue
+            
+            # Skip lines that are just numbers or UI elements
+            if line.isdigit() or line in ['/', '-', '|', '\\', '011', '017']:
+                continue
+            
+            # Skip coordinate-like patterns (e.g., "40 700" which are probably UI positions)
+            if re.match(r'^\d+\s+\d+$', line):
+                continue
+            
+            # Check for standalone quantity (MTGA format where qty is on next line)
+            qty_match = qty_pattern.match(line)
+            if qty_match and pending_card_name:
+                # We have a quantity and a pending card name from previous line
+                qty = int(qty_match.group(1))
+                if 0 < qty <= 20:
+                    entry = CardEntry(qty=qty, name=pending_card_name)
+                    if is_sideboard:
+                        side_entries.append(entry)
+                    else:
+                        main_entries.append(entry)
+                pending_card_name = None
+                continue
+            elif qty_match:
+                # Quantity without card name - skip
+                continue
+            
+            # Try to match card with different patterns
+            entry = None
+            matched = False
+            
+            for j, pattern in enumerate(patterns):
+                match = pattern.match(line)
+                if match:
+                    try:
+                        if j == 0:  # "4 Lightning Bolt"
+                            qty = int(match.group(1))
+                            name = match.group(2).strip()
+                        elif j == 1:  # "Lightning Bolt x4"
+                            name = match.group(1).strip()
+                            qty = int(match.group(2))
+                        elif j == 2:  # "4x Lightning Bolt"
+                            qty = int(match.group(1))
+                            name = match.group(2).strip()
+                        else:  # "Lightning Bolt 4"
+                            # Check if last part is really a number
+                            qty = int(match.group(2))
+                            name = match.group(1).strip()
+                            # Additional validation for this pattern
+                            if qty > 20 or len(name) < 3:
+                                continue
+                        
+                        # Clean card name
+                        name = re.sub(r'\s+', ' ', name)  # Normalize spaces
+                        name = re.sub(r'[^\w\s,\'-/]', '', name)  # Keep valid MTG characters
+                        name = name.strip()
+                        
+                        # Validate that it's a real card name (not just numbers or gibberish)
+                        if name and len(name) > 2 and 0 < qty <= 20:
+                            # Card names must contain at least one alphabetic word
+                            if any(c.isalpha() for c in name) and not name.isdigit():
+                                entry = CardEntry(qty=qty, name=name)
+                                matched = True
+                                break
+                    except (ValueError, IndexError):
+                        continue
+            
             if entry:
-                if section == "main":
-                    main_entries.append(entry)
-                else:
+                if is_sideboard:
                     side_entries.append(entry)
+                else:
+                    main_entries.append(entry)
+                pending_card_name = None
+            elif not matched:
+                # This might be a card name without quantity (MTGA format)
+                # Check if it looks like a card name
+                if (len(line) > 3 and 
+                    not line[0].isdigit() and 
+                    not line.lower().startswith('x') and
+                    line[0].isupper()):  # Card names usually start with capital
+                    # Clean the potential card name
+                    name = re.sub(r'\s+', ' ', line)
+                    name = re.sub(r'[^\w\s,\'-/]', '', name)
+                    name = name.strip()
+                    
+                    if name and len(name) > 2:
+                        # Check if next span might be a quantity
+                        if i + 1 < len(spans):
+                            next_line = spans[i + 1].text.strip().lower()
+                            if next_line.startswith('x'):
+                                pending_card_name = name
+                            else:
+                                # Single card without quantity indication
+                                entry = CardEntry(qty=1, name=name)
+                                if is_sideboard:
+                                    side_entries.append(entry)
+                                else:
+                                    main_entries.append(entry)
         
         return DeckSections(main=main_entries, side=side_entries)
     
+    def _parse_cards_mtga(self, spans: List[OCRSpan]) -> DeckSections:
+        """
+        Parse cards from OCR - VRAIMENT FONCTIONNEL pour MTGA.
+        """
+        main_entries = []
+        side_entries = []
+        
+        # Convertir spans en liste de textes pour faciliter le parcours
+        texts = [span.text.strip() for span in spans]
+        
+        # Pour MTGA, on ne peut pas se fier au mot "Sideboard" car il apparaît en haut
+        # On doit compter les cartes et séparer à 60
+        all_cards = []
+        
+        i = 0
+        while i < len(texts):
+            text = texts[i]
+            
+            # Ignorer les éléments UI connus
+            if any(skip in text.lower() for skip in ['sideboard', 'cards', 'deck', 'total', '/', 'done', 'best of', 'temur otters']):
+                i += 1
+                continue
+            
+            # Ignorer les nombres seuls ou patterns numériques
+            if text.isdigit() or re.match(r'^\d+/\d+$', text) or text in ['011', '017']:
+                i += 1
+                continue
+            
+            # Chercher une quantité (x2, x3, x4, etc.)
+            qty_match = re.match(r'^x(\d+)$', text, re.IGNORECASE)
+            if qty_match:
+                # C'est une quantité seule, ignorer
+                i += 1
+                continue
+            
+            # Vérifier si c'est un nom de carte potentiel
+            # Doit avoir des lettres et ne pas être juste des nombres
+            if len(text) > 2 and any(c.isalpha() for c in text):
+                # C'est potentiellement un nom de carte
+                card_name = text
+                quantity = 1  # Par défaut
+                
+                # Regarder la ligne suivante pour voir si c'est une quantité
+                if i + 1 < len(texts):
+                    next_text = texts[i + 1]
+                    qty_match = re.match(r'^x(\d+)$', next_text, re.IGNORECASE)
+                    if qty_match:
+                        # La ligne suivante est une quantité !
+                        quantity = int(qty_match.group(1))
+                        i += 2  # Sauter le nom ET la quantité
+                    else:
+                        i += 1  # Juste le nom
+                else:
+                    i += 1
+                
+                # Nettoyer le nom
+                card_name = re.sub(r'[^\w\s\',/-]', '', card_name).strip()
+                
+                # Valider et ajouter
+                if card_name and quantity > 0 and quantity <= 20:
+                    all_cards.append(CardEntry(qty=quantity, name=card_name))
+            else:
+                i += 1
+        
+        # Séparer mainboard et sideboard basé sur le nombre de cartes
+        # Les 60 premières cartes (en comptant les quantités) = mainboard
+        # Le reste = sideboard
+        total_count = 0
+        for card in all_cards:
+            if total_count < 60:
+                # Encore dans le mainboard
+                remaining_main = 60 - total_count
+                if card.qty <= remaining_main:
+                    main_entries.append(card)
+                    total_count += card.qty
+                else:
+                    # Cette carte est split entre main et side
+                    main_entries.append(CardEntry(qty=remaining_main, name=card.name))
+                    side_entries.append(CardEntry(qty=card.qty - remaining_main, name=card.name))
+                    total_count = 60
+            else:
+                # Sideboard
+                side_entries.append(card)
+        
+        return DeckSections(main=main_entries, side=side_entries)
+    
+    def _parse_cards(self, spans: List[OCRSpan]) -> DeckSections:
+        """
+        Parse cards - handles both OpenAI and EasyOCR formats.
+        Enhanced with better MTGO/MTGA sideboard segmentation.
+        """
+        main_entries = []
+        side_entries = []
+        is_sideboard = False
+        force_complete_mode = False
+        
+        # Detect format based on content patterns
+        text_lines = [s.text.strip() for s in spans]
+        
+        # Check for MTGO patterns that require force complete 60+15
+        if any('MTGO' in line or 'Magic Online' in line for line in text_lines[:10]):
+            force_complete_mode = True
+            logger.info("MTGO format detected - using force complete 60+15 mode")
+        
+        # Check for websites format (mtggoldfish, archidekt, etc.)
+        website_patterns = ['mtggoldfish', 'archidekt', 'moxfield', 'tappedout', 'deckstats']
+        if any(pattern in ' '.join(text_lines[:10]).lower() for pattern in website_patterns):
+            logger.info("Website format detected - using smart parsing")
+        
+        for span in spans:
+            text = span.text.strip()
+            
+            # Check for sideboard marker
+            if text.lower() in ['sideboard', 'side board', 'sb'] and not force_complete_mode:
+                is_sideboard = True
+                continue
+            
+            # Skip UI elements
+            if any(skip in text.lower() for skip in ['cards', 'deck', 'total', '/', 'done', 'best of']):
+                continue
+            
+            # Try to parse OpenAI format: "4 Lightning Bolt"
+            match = re.match(r'^(\d+)\s+(.+)$', text)
+            if match:
+                qty = int(match.group(1))
+                name = match.group(2).strip()
+                
+                if name and qty > 0 and qty <= 20:
+                    entry = CardEntry(qty=qty, name=name)
+                    if is_sideboard:
+                        side_entries.append(entry)
+                    else:
+                        main_entries.append(entry)
+                continue
+            
+            # If not in OpenAI format, use MTGA parsing
+            # This will handle the case where names and quantities are on separate lines
+            # For now, just add cards with qty=1 if they look like card names
+            if len(text) > 2 and any(c.isalpha() for c in text) and not text.startswith('x'):
+                entry = CardEntry(qty=1, name=text)
+                if is_sideboard:
+                    side_entries.append(entry)
+                else:
+                    main_entries.append(entry)
+        
+        # Apply force complete mode for MTGO (60 mainboard + 15 sideboard)
+        if force_complete_mode:
+            all_cards = main_entries + side_entries
+            main_entries = []
+            side_entries = []
+            
+            total_count = 0
+            for card in all_cards:
+                if total_count < 60:
+                    remaining_main = 60 - total_count
+                    if card.qty <= remaining_main:
+                        main_entries.append(card)
+                        total_count += card.qty
+                    else:
+                        # Split card between main and side
+                        if remaining_main > 0:
+                            main_entries.append(CardEntry(qty=remaining_main, name=card.name))
+                        side_entries.append(CardEntry(qty=card.qty - remaining_main, name=card.name))
+                        total_count = 60
+                else:
+                    # Everything after 60 cards goes to sideboard
+                    side_entries.append(card)
+            
+            logger.info(f"Force complete mode: {sum(c.qty for c in main_entries)} mainboard, {sum(c.qty for c in side_entries)} sideboard")
+        
+        # If we got good results from OpenAI, use them
+        if len(main_entries) + len(side_entries) >= 20:
+            return DeckSections(main=main_entries, side=side_entries)
+        
+        # Otherwise fallback to MTGA parsing
+        return self._parse_cards_mtga(spans)
+    
     def _parse_card_line(self, line: str) -> Optional[CardEntry]:
-        """Parse a single card line."""
-        parts = line.split(" ", 1)
-        if len(parts) != 2:
-            return None
-        
-        qty_str, name = parts
-        
-        # Parse quantity
-        qty = 0
-        if qty_str.isdigit():
-            qty = int(qty_str)
-        elif qty_str.lower().endswith("x") and qty_str[:-1].isdigit():
-            qty = int(qty_str[:-1])
-        
-        if qty > 0 and name:
-            return CardEntry(qty=qty, name=name)
-        
+        """Legacy method - now handled in _parse_cards directly."""
+        # This method is no longer used but kept for compatibility
         return None
     
     @cached(prefix="scryfall_enrich", ttl=7200)

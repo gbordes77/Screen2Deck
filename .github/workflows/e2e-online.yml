@@ -1,0 +1,60 @@
+name: e2e-online
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+concurrency:
+  group: e2e-online-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Playwright
+        run: |
+          npm ci || npm i
+          npx playwright install --with-deps
+
+      - name: Docker Compose Up
+        run: |
+          docker compose --profile core build backend webapp
+          docker compose --profile core up -d redis postgres backend webapp
+
+      - name: Wait services (backend + web)
+        run: |
+          echo "Waiting for backend..."
+          for i in {1..40}; do curl -fsS http://localhost:8080/health && break || sleep 2; done
+          echo "Waiting for frontend..."
+          for i in {1..40}; do curl -Is http://localhost:3000 | head -1 | grep "200 OK\|304 Not Modified" && break || sleep 2; done
+          echo "Services ready!"
+
+      - name: Run E2E ONLINE
+        env:
+          FRONT_URL: http://localhost:3000
+        run: node tests/webapp.online.js
+
+      - name: Dump backend logs on failure
+        if: failure()
+        run: |
+          docker compose logs backend --tail 500 || true
+
+      - name: Upload artifacts (Playwright screenshot)
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-artifacts
+          path: |
+            tests/last_error.png
+            playwright-report/
+            test-results/
