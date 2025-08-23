@@ -27,7 +27,7 @@ export default function Page() {
   return (
     <main className="min-h-screen p-8 bg-neutral-950 text-neutral-100">
       <div className="max-w-3xl mx-auto">
-        <h1 className="text-3xl font-bold mb-6">MTG Deck Scanner</h1>
+        <h1 className="text-3xl font-bold mb-6">Screen2Deck</h1>
         
         <div className="p-6 border border-neutral-800 rounded-2xl space-y-4">
           {/* File input with preview */}
@@ -73,6 +73,14 @@ export default function Page() {
               'Analyze Deck'
             )}
           </button>
+          
+          {/* First-time model download notice */}
+          {busy && (
+            <div className="p-3 bg-blue-500/10 border border-blue-500/20 rounded-lg text-blue-400 text-sm">
+              <strong>ℹ️ First-time setup:</strong> If this is your first upload, EasyOCR is downloading models (~64MB). 
+              This takes 2-3 minutes but only happens once. Subsequent scans will be fast (3-5 seconds).
+            </div>
+          )}
         </div>
         
         {/* Instructions */}

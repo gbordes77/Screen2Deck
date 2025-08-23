@@ -426,7 +426,7 @@ async def get_job_status(
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": JOB_NOT_FOUND, "message": "Job not found"}
+            detail={"code": "JOB_NOT_FOUND", "message": "Job not found"}
         )
     
     # Check authorization if job has user_id

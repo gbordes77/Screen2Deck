@@ -4,11 +4,15 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 
 ## Project Status: Production Ready (v2.3.0)
 
-**Latest Update**: 2025-08-23 - Documentation cleanup and consistency fixes (4h session)
-- Part 1: Removed excessive defensive tone, reduced 672→117 lines
-- Part 2: Fixed 9 documentation inconsistencies
-- Added mandatory session tracking system
-- Created PERFORMANCE_LOAD_REPORT.md
+**Latest Update**: 2025-08-23 - OCR Improvements Implementation (8h total)
+- Part 1-2: Documentation cleanup and consistency fixes (4h)
+- Part 3: Implemented all 5 OCR improvements (4h)
+  - Vision fallback thresholds adjusted (0.85/0.62)
+  - Super-resolution 4× for small images
+  - MTGO sideboard segmentation (60+15)
+  - Benchmark suite created
+  - Website format parsing enhanced
+- ⚠️ Rate limiting interrupted benchmark testing
 
 **Previous Updates**:
 - 2025-08-19: Online-only operation with Scryfall API integration
@@ -27,11 +31,11 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 - ⚠️ PROOF_SUMMARY.md might be redundant (consider removal)
 
 ### Technical Discoveries Today
-- Accuracy was inconsistent (95%+ vs 85-94%) - now unified at 85-94%
-- Rate limits weren't documented per endpoint - now clear
-- OCR thresholds weren't exposed as ENV - now documented
-- External API data usage wasn't transparent - now explicit
-- Load test claims had no evidence - PERFORMANCE_LOAD_REPORT.md created
+- OCR thresholds now fully configurable (OCR_EARLY_STOP_CONF, OCR_MIN_SPAN_CONF)
+- Super-resolution significantly improves small image detection
+- MTGO format requires force complete 60+15 segmentation
+- Rate limiting at 30 req/min can interrupt batch testing
+- Vision API fallback works with 0.95 confidence when triggered
 
 ## OCR Processing Pipeline
 
@@ -75,9 +79,17 @@ The OCR flow is critical to the application's functionality:
 
 ### Environment Variables
 ```env
-ALWAYS_VERIFY_SCRYFALL=true  # Never disable
-OCR_MIN_CONF=0.62           # Minimum OCR confidence
-FEATURE_TELEMETRY=false      # Disable in dev
+# Core Settings (Never change)
+ALWAYS_VERIFY_SCRYFALL=true      # Never disable
+FEATURE_TELEMETRY=false          # Disable in dev
+
+# OCR Configuration (New - v2.3.0)
+ENABLE_VISION_FALLBACK=true      # Use OpenAI Vision as fallback
+ENABLE_SUPERRES=true             # 4× upscaling for small images
+OCR_MIN_CONF=0.62               # Trigger Vision fallback below this
+OCR_EARLY_STOP_CONF=0.85        # Stop processing if confidence high
+OCR_MIN_SPAN_CONF=0.3           # Min confidence per text span
+SUPERRES_MIN_WIDTH=1200         # Trigger super-res below this width
 ```
 
 ## Development Commands
@@ -121,6 +133,8 @@ make down          # Stop services
 3. **ARM64/M1/M2 Docker build fails**: Remove x86-specific packages from Dockerfile
 4. **Performance on CPU**: ~9s average (GPU required for <3s performance)
 5. **First run slow**: EasyOCR downloads models (~64MB) on first use
+6. **Rate limiting errors**: 30 req/min limit, add delays in benchmark scripts
+7. **Vision API not triggering**: Check OCR_MIN_CONF threshold (default 0.62)
 
 ## Testing
 

@@ -1,4 +1,4 @@
-# Screen2Deck - Project Handoff Document
+# HANDOFF.md - Session Transfer Document
 
 ## Executive Summary
 
@@ -6,7 +6,7 @@ Screen2Deck is a web application that converts Magic: The Gathering card images 
 
 **Current State**: ✅ PRODUCTION READY - 100% ONLINE MODE
 **Version**: v2.3.0 (2025-08-19)
-**Latest Work**: Complete evolution to ONLINE-ONLY architecture
+**Latest Work**: Session tracking system implementation
 
 ### 🌐 Architecture Evolution (v2.3.0)
 - ✅ **100% ONLINE**: Removed all offline capabilities
@@ -39,7 +39,7 @@ make health
 
 ## What Was Done
 
-### Session 2025-08-23 - Documentation Cleanup & Consistency Fixes (4h)
+### Session 2025-08-23 - OCR Improvements Implementation (8h total)
 
 #### Part 1: Documentation Cleanup (2h)
 - ✅ **Documentation Analysis**: Identified excessive defensive tone and repetitions
@@ -59,12 +59,21 @@ make health
 - ✅ **Tesseract Ban Documented**: Code location specified (backend/app/core/determinism.py:42)
 - ✅ **Privacy Section Added**: Clear documentation of external API data usage
 
+#### Part 3: OCR Pipeline Improvements (4h) - All 5 Recommendations Implemented
+- ✅ **Vision Fallback Thresholds**: Adjusted to 0.85 early-stop, 0.62 fallback trigger
+- ✅ **Super-Resolution**: 4× upscaling for images <1200px width
+- ✅ **MTGO Sideboard Segmentation**: Force complete 60+15 mode for MTGO format
+- ✅ **Benchmark Suite**: Created comprehensive testing framework with validation images
+- ✅ **Website Format Parsing**: Enhanced detection for mtggoldfish, archidekt, etc.
+
 #### Key Files Created/Modified
 1. **PERFORMANCE_LOAD_REPORT.md**: New file with load testing evidence
-2. **index.html**: Added to git, now documentation hub
-3. **SESSION_NOTES.md**: Created for detailed session history
-4. **README.md**: Major updates for consistency and transparency
-5. **CLAUDE.md**: Technical notes and session tracking system
+2. **IMPROVEMENTS_IMPLEMENTED.md**: Detailed improvements documentation
+3. **tools/benchmark.py**: Complete benchmark testing suite
+4. **tests/validation-images/**: Test image directory with 6 validation images
+5. **backend/app/config.py**: Added configurable OCR thresholds
+6. **backend/app/pipeline/preprocess.py**: Super-resolution implementation
+7. **backend/app/services/ocr_service.py**: Format detection and sideboard segmentation
 
 ### Previous Sessions
 
@@ -253,19 +262,23 @@ ALWAYS_VERIFY_SCRYFALL=true
 
 ## Next Steps for Next Session
 
-### Priority 1 - Testing
-- [ ] Run `make test-online` to verify nothing broken after doc changes
-- [ ] Verify all make commands still work properly
-- [ ] Test that the simplified documentation is still accurate
+### Priority 1 - Complete Benchmark Testing
+- [ ] Add delays to benchmark script to avoid rate limits (30 req/min)
+- [ ] Run full benchmark suite on all 6 validation images
+- [ ] Test with real MTGA/MTGO screenshots to validate improvements
+- [ ] Fine-tune OCR thresholds based on benchmark results
 
-### Priority 2 - Cleanup
-- [ ] Consider removing PROOF_SUMMARY.md (content integrated into README)
-- [ ] Check for other redundant documentation files
-- [ ] Review if any test scripts are duplicates
+### Priority 2 - Monitor & Optimize
+- [ ] Track Vision API fallback frequency and costs
+- [ ] Monitor super-resolution impact on performance
+- [ ] Verify MTGO 60+15 segmentation accuracy
+- [ ] Test website format detection (mtggoldfish, archidekt)
 
-### Priority 3 - Validation
-- [ ] Ensure OCR flow still works as documented
-- [ ] Verify performance metrics are accurate (85-94% accuracy claim)
+### Priority 3 - Documentation
+- [ ] Update README.md with new ENV variables
+- [ ] Document benchmark results when complete
+- [ ] Add usage examples for new features
+- [ ] Consider removing PROOF_SUMMARY.md (redundant)
 
 ## Known Limitations
 
@@ -275,11 +288,11 @@ ALWAYS_VERIFY_SCRYFALL=true
 - GPU required for <2.5s processing times
 
 ### Current Issues
+- Rate limiting (30 req/min) interrupts benchmark testing
 - Discord bot not fully tested (isolated with profile)
 - Some Docker builds slow on first run (model downloads)
 - Frontend build warnings about missing types
-- Auth middleware blocks export endpoints (needs PUBLIC_ENDPOINTS config)
-- OCR upload endpoint needs debugging
+- Benchmark needs delays between tests to avoid rate limits
 
 ## Testing & Validation
 

@@ -198,13 +198,18 @@ REDIS_URL=redis://localhost:6379/0
 CORS_ORIGINS=["http://localhost:3000","https://yourdomain.com"]
 
 # OCR Configuration
-OCR_MIN_CONF=0.62           # Minimum confidence threshold
-OCR_EARLY_STOP=0.85         # Early termination threshold
+OCR_MIN_CONF=0.62           # Trigger Vision API below this
+OCR_EARLY_STOP_CONF=0.85    # Stop processing if confidence high
+OCR_MIN_SPAN_CONF=0.3       # Min confidence per text span
 OCR_MIN_LINES=10            # Minimum lines for valid OCR
 ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation
 
-# Optional: OpenAI Vision fallback
-ENABLE_VISION_FALLBACK=false
+# Super-Resolution (v2.3.0)
+ENABLE_SUPERRES=true        # Enable 4× super-resolution
+SUPERRES_MIN_WIDTH=1200     # Trigger super-res below this width
+
+# OpenAI Vision fallback (v2.3.0)
+ENABLE_VISION_FALLBACK=true # Use as fallback when confidence low
 OPENAI_API_KEY=your-api-key-here
 ```
 

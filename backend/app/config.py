@@ -9,8 +9,11 @@ class Settings:
     # OCR & fallbacks
     ENABLE_VISION_FALLBACK: bool = os.getenv("ENABLE_VISION_FALLBACK","false").lower()=="true"
     ENABLE_SUPERRES: bool = os.getenv("ENABLE_SUPERRES","false").lower()=="true"
-    OCR_MIN_CONF: float = float(os.getenv("OCR_MIN_CONF", 0.62))
+    OCR_MIN_CONF: float = float(os.getenv("OCR_MIN_CONF", 0.62))  # Fallback threshold
     OCR_MIN_LINES: int = int(os.getenv("OCR_MIN_LINES", 10))
+    OCR_EARLY_STOP_CONF: float = float(os.getenv("OCR_EARLY_STOP_CONF", 0.85))  # Early termination threshold
+    OCR_MIN_SPAN_CONF: float = float(os.getenv("OCR_MIN_SPAN_CONF", 0.3))  # Min confidence per text span
+    SUPERRES_MIN_WIDTH: int = int(os.getenv("SUPERRES_MIN_WIDTH", 1200))  # Min width to trigger super-resolution
 
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"

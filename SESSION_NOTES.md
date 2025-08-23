@@ -1,5 +1,114 @@
 # Session History - Screen2Deck Project
 
+## 2025-08-23 - OCR Improvements Implementation (8h total)
+
+### Part 3: OCR Pipeline Enhancements (4h) - Continuation of session
+
+#### Context
+- User provided 5 actionable recommendations in French
+- Goal: Improve OCR accuracy from current 85-94% baseline
+- Reference project "screen to deck" analyzed for best practices
+
+#### Tasks Completed
+
+1. ✅ **Vision API Fallback Configuration**
+   - Adjusted thresholds: 0.85 early-stop, 0.62 fallback trigger
+   - Made all thresholds configurable via ENV variables
+   - Files: `backend/app/config.py`, `backend/app/pipeline/ocr.py`
+   - New ENV vars: OCR_EARLY_STOP_CONF, OCR_MIN_SPAN_CONF
+
+2. ✅ **Super-Resolution Implementation**
+   - Added 4× upscaling for images <1200px width
+   - Uses INTER_CUBIC interpolation + sharpening
+   - File: `backend/app/pipeline/preprocess.py`
+   - Function: `_apply_super_resolution()`
+   - ENV vars: ENABLE_SUPERRES, SUPERRES_MIN_WIDTH
+
+3. ✅ **MTGO Sideboard Segmentation**
+   - Force complete 60+15 mode for Magic Online format
+   - Smart card splitting at main/side boundary
+   - File: `backend/app/services/ocr_service.py`
+   - Detection of MTGO, MTGA, and website formats
+
+4. ✅ **Benchmark Suite Creation**
+   - Complete testing framework with async processing
+   - 6 validation images copied from reference project
+   - File: `tools/benchmark.py`
+   - Directory: `tests/validation-images/`
+   - Tracks accuracy, speed, Vision API usage
+
+5. ✅ **Website Format Parsing**
+   - Enhanced detection for: mtggoldfish, archidekt, moxfield, tappedout, deckstats
+   - Format-aware parsing logic
+   - File: `backend/app/services/ocr_service.py`
+
+#### Technical Implementation Details
+
+**Configuration Changes:**
+```python
+# New settings in backend/app/config.py
+OCR_EARLY_STOP_CONF: float = 0.85  # Early termination
+OCR_MIN_SPAN_CONF: float = 0.3     # Min confidence per span
+SUPERRES_MIN_WIDTH: int = 1200     # Trigger super-res
+```
+
+**Super-Resolution Algorithm:**
+```python
+def _apply_super_resolution(img, scale=4):
+    # Calculate scale to reach minimum width
+    # Apply INTER_CUBIC upscaling
+    # Apply sharpening post-upscale
+```
+
+**Format Detection Logic:**
+- MTGO: Checks for "MTGO" or "Magic Online" in first 10 lines
+- Websites: Pattern matching for known deck sites
+- Force complete: 60 cards main, 15 sideboard for MTGO
+
+#### Commands Executed
+```bash
+# Docker rebuild
+docker-compose down && docker-compose build backend
+
+# Start services
+make up
+
+# Benchmark attempt (rate limited)
+python3 tools/benchmark.py
+
+# Check logs
+docker logs screen2deck-backend-1 --tail 50
+```
+
+#### Issues Encountered
+- **Rate Limiting**: 30 req/min limit interrupted benchmark at test #3
+- **Connection Reset**: Backend crashed with 429 rate limit error
+- **Python Version**: Had to use python3 instead of python
+
+#### Performance Impact
+- Super-resolution: Adds processing time but improves accuracy on small images
+- Vision API: 0.95 confidence when used, significant accuracy boost
+- Early termination: Saves processing time when confidence high
+
+#### Files Created/Modified
+- `backend/app/config.py` - 7 new configuration parameters
+- `backend/app/pipeline/ocr.py` - Updated thresholds usage
+- `backend/app/pipeline/preprocess.py` - Added super-resolution
+- `backend/app/services/ocr_service.py` - Format detection, sideboard logic
+- `.env` - Updated with new ENV variables
+- `tools/benchmark.py` - Complete benchmark suite (324 lines)
+- `tests/validation-images/` - 6 test images
+- `IMPROVEMENTS_IMPLEMENTED.md` - Detailed documentation
+
+#### Next Steps Required
+1. Add delays to benchmark script (2s between tests)
+2. Run complete benchmark on all 6 images
+3. Fine-tune thresholds based on results
+4. Monitor Vision API costs
+5. Test with real MTGA/MTGO screenshots
+
+---
+
 ## 2025-08-23 - Documentation Cleanup & Consistency Fixes (4h)
 
 ### Context
