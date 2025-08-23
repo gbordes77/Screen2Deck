@@ -28,7 +28,7 @@ Features:
 
 ### Core Functionality
 - **📸 Advanced OCR**: Multi-variant processing with EasyOCR + [OpenAI Vision fallback](./docs/VISION_FALLBACK_POLICY.md)
-- **🔍 Smart Matching**: 95%+ accuracy with Scryfall API
+- **🔍 Smart Matching**: Scryfall API validation (85-94% accuracy measured, ≥85% target)
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
 - **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md)) ✅
 - **🔐 Enterprise Security**: JWT auth, API keys, rate limiting, input validation
@@ -197,7 +197,14 @@ REDIS_URL=redis://localhost:6379/0
 # CORS (update for your domain)
 CORS_ORIGINS=["http://localhost:3000","https://yourdomain.com"]
 
+# OCR Configuration
+OCR_MIN_CONF=0.62           # Minimum confidence threshold
+OCR_EARLY_STOP=0.85         # Early termination threshold
+OCR_MIN_LINES=10            # Minimum lines for valid OCR
+ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation
+
 # Optional: OpenAI Vision fallback
+ENABLE_VISION_FALLBACK=false
 OPENAI_API_KEY=your-api-key-here
 ```
 
@@ -213,6 +220,11 @@ Full API documentation available at:
 - **Swagger UI**: http://localhost:8080/docs
 - **ReDoc**: http://localhost:8080/redoc
 - **[API Reference](./docs/API.md)**: Detailed endpoint documentation
+
+### Rate Limits
+- **Export endpoints** (`/api/export/*`): 20 requests/minute per IP
+- **OCR endpoints** (`/api/ocr/*`): 60 requests/minute per IP
+- **Auth endpoints** (`/api/auth/*`): 10 requests/minute per IP
 
 ### Quick Example
 
@@ -298,8 +310,8 @@ Available metrics:
 # Complete test suite with proofs
 make test          # Unit + integration tests
 make bench-day0    # Run benchmarks
-make golden        # Validate export formats
-make parity        # Check Web/Discord parity
+make golden        # Validate export formats ([Golden Exports](./golden_exports/))
+make parity        # Web/Discord parity check ([CI Job](.github/workflows/parity-test.yml))
 
 # Individual test categories
 pytest tests/unit -v           # Unit tests (MTG edge cases)
