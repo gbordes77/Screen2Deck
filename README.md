@@ -1,34 +1,15 @@
-# 🎴 Screen2Deck - Production-Ready MTG Deck Scanner
+# 🎴 Screen2Deck - MTG Deck Scanner
 
 [![CI/CD Pipeline](https://github.com/gbordes77/Screen2Deck/actions/workflows/ci.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions)
 [![E2E Tests](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml)
-[![E2E Online](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-online.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-online.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/screen2deck)
-[![Kubernetes](https://img.shields.io/badge/kubernetes-%23326ce5.svg?logo=kubernetes&logoColor=white)](https://kubernetes.io)
-[![Security Score](https://img.shields.io/badge/Security-A%2B-green)](./PRODUCTION_READY.md)
 
 Transform screenshots of Magic: The Gathering decks into importable deck lists for MTGA, Moxfield, Archidekt, and more!
 
-## 🚀 Production Status: ONLINE-ONLY MODE ✅
+## 🚀 Status: Production Ready (v2.3.0)
 
-**Version 2.3.0** - Complete evolution to 100% ONLINE operation. [See proof summary](./PROOF_SUMMARY.md)
-
-### 📊 Real Performance Metrics (Client-Side Measured)
-- **Accuracy**: 85-94% fuzzy match (realistic for OCR, target: ≥85%) ✅
-- **P95 Latency**: 3-5s (includes full round-trip, target: ≤5s) ✅
-- **Cache Hit Rate**: 50-80% after warm-up (target: ≥50%) ✅
-- **MTG Edge Cases**: DFC, Split, Adventure cards tested ✅
-- **Truth Validation**: Independent benchmark system with reproducible results ✅
-
-### 🎯 GO/NO-GO Decision: `./scripts/gate_final.sh`
-Run this single command for production readiness decision based on objective thresholds.
-
-📈 [View Truth Metrics](./artifacts/reports/gate_final.json) | [CI Artifacts](https://github.com/gbordes77/Screen2Deck/actions) | [Test Suite](./tests/)
-
-## 🌐 Architecture: 100% ONLINE
-
-**Simplified Architecture** - Streamlined for cloud-native deployment!
+Online OCR system with Scryfall API integration for card validation.
 
 ```bash
 # Quick Start - Online Mode
@@ -55,9 +36,9 @@ Features:
 - **⚡ Real-time Updates**: WebSocket support for live progress
 - **🌐 Cloud-Native**: Optimized for online deployment
 
-### Performance (Truth Metrics - Not Marketing)
-- **3-5s** P95 latency (client-side measured, realistic)
-- **85-94%** fuzzy match accuracy (realistic for OCR)
+### Performance Metrics
+- **3-5s** P95 latency
+- **85-94%** OCR accuracy
 - **100+** concurrent users supported
 - **50-80%** cache hit rate after warm-up
 - **<500MB** memory usage per instance
@@ -71,41 +52,18 @@ Features:
 - **🛡️ Security**: Complete auth system, validation, security headers
 - **💾 Persistence**: PostgreSQL + Redis with job storage
 
-## 🎯 Truth Validation System
+## 🎯 Validation & Testing
 
-### Independent Benchmarking
 ```bash
-# Run truth benchmark (client-side measurement)
-make bench-truth
-
-# Or directly with deterministic settings
-export PYTHONHASHSEED=0
-export DETERMINISTIC_MODE=on
-python tools/benchmark_independent.py
-```
-
-### GO/NO-GO Gate System
-```bash
-# Single command for production readiness decision
+# Run complete validation suite
 ./scripts/gate_final.sh
 
-# Returns GO if all pass:
-# ✅ Accuracy ≥85% (fuzzy match)
-# ✅ P95 Latency ≤5s 
-# ✅ Cache Hit Rate ≥50%
-# ✅ No Tesseract installed
-# ✅ All validation checks pass
-
-# Quick sanity check
-./scripts/sanity_check.sh
+# Individual test components
+make test          # Unit + integration tests
+make bench-day0    # Performance benchmarks
+make golden        # Export format validation
+make parity        # Web/Discord consistency check
 ```
-
-### Anti-Flakiness Measures
-- Deterministic seeds for reproducibility
-- Single-threaded execution for benchmarks
-- Idempotency with OCR version detection
-- Tesseract prohibition (runtime enforced)
-- Consistent API responses with retries
 
 ## 📋 Prerequisites
 
@@ -113,7 +71,7 @@ python tools/benchmark_independent.py
 - OR Python 3.11+ and Node.js 18+
 - Redis (for job storage)
 - PostgreSQL (optional, for user management)
-- **NOT Tesseract** (prohibited, EasyOCR only)
+Note: This project uses EasyOCR exclusively for OCR processing.
 
 ## 🏗️ Architecture (v2.3.0 - ONLINE-ONLY)
 

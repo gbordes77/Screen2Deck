@@ -39,11 +39,35 @@ make health
 
 ## What Was Done
 
-### 1. System Validation & Fixes
+### Session 2025-08-23 - Documentation Cleanup (2h)
+
+#### Completed
+- ✅ **Documentation Analysis**: Identified excessive defensive tone and repetitions
+- ✅ **CLAUDE.md Simplified**: Reduced from 672 to 117 lines (83% reduction)
+- ✅ **README.md Cleaned**: Removed "Truth Metrics", defensive justifications, excessive checkmarks
+- ✅ **index.html Updated**: Removed dramatic warnings, simplified OCR flow diagram
+- ✅ **Session Tracking Added**: Added mandatory session tracking instructions to both project and global CLAUDE.md
+
+#### Key Changes
+- Removed all "NOT FAKE", "Truth Metrics (Not Marketing)" defensive language
+- Consolidated repetitive OCR flow documentation (was in 3+ places)
+- Simplified Tesseract prohibition to single professional note
+- Removed pulsing "PRODUCTION READY" badge
+- Made documentation more professional and less suspicious
+
+#### Files Modified
+1. **CLAUDE.md**: Complete rewrite, kept only essential guidance
+2. **README.md**: Cleaned headers, simplified metrics, removed defensive tone
+3. **index.html**: Removed warning box, simplified diagrams
+4. **~/.claude/CLAUDE.md**: Added mandatory session tracking rules
+
+### Previous Sessions
+
+#### 1. System Validation & Fixes
 - **Initial State**: Multiple missing dependencies, configuration issues, build failures
 - **Final State**: All core services operational, dependencies resolved, Docker optimized
 
-### 2. Key Technical Fixes Applied
+#### 2. Key Technical Fixes Applied
 ```
 ✅ Replaced asyncpg with psycopg[binary] (stability)
 ✅ Created telemetry stub to avoid OpenTelemetry complexity
@@ -221,6 +245,22 @@ ALWAYS_VERIFY_SCRYFALL=true
 - `backend/Dockerfile.optimized` - BuildKit optimized Dockerfile
 - `test_upload.sh` - API testing script
 - `SANITY_CHECKLIST.md` - Complete validation checklist
+
+## Next Steps for Next Session
+
+### Priority 1 - Testing
+- [ ] Run `make test-online` to verify nothing broken after doc changes
+- [ ] Verify all make commands still work properly
+- [ ] Test that the simplified documentation is still accurate
+
+### Priority 2 - Cleanup
+- [ ] Consider removing PROOF_SUMMARY.md (content integrated into README)
+- [ ] Check for other redundant documentation files
+- [ ] Review if any test scripts are duplicates
+
+### Priority 3 - Validation
+- [ ] Ensure OCR flow still works as documented
+- [ ] Verify performance metrics are accurate (85-94% accuracy claim)
 
 ## Known Limitations
 
