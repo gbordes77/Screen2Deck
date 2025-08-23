@@ -4,10 +4,11 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 
 ## Project Status: Production Ready (v2.3.0)
 
-**Latest Update**: 2025-08-23 - Documentation cleanup and standardization
-- Removed excessive defensive tone from all documentation
+**Latest Update**: 2025-08-23 - Documentation cleanup and consistency fixes (4h session)
+- Part 1: Removed excessive defensive tone, reduced 672→117 lines
+- Part 2: Fixed 9 documentation inconsistencies
 - Added mandatory session tracking system
-- Simplified from 672 to 117 lines
+- Created PERFORMANCE_LOAD_REPORT.md
 
 **Previous Updates**:
 - 2025-08-19: Online-only operation with Scryfall API integration
@@ -18,15 +19,19 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 ## Current Technical Notes
 
 ### Documentation State
-- ✅ Cleaned and professional tone
-- ✅ Session tracking system implemented
+- ✅ Cleaned and professional tone (no more defensive language)
+- ✅ Session tracking system implemented globally
+- ✅ All inconsistencies fixed (accuracy, version, links, etc.)
+- ✅ Load testing evidence documented
+- ✅ Privacy/external APIs clearly documented
 - ⚠️ PROOF_SUMMARY.md might be redundant (consider removal)
-- ⚠️ Some test scripts might be duplicates
 
-### Important Discovery
-- Documentation was overly defensive with excessive "NOT FAKE" claims
-- This made the project appear suspicious rather than professional
-- Simple, factual documentation is more credible
+### Technical Discoveries Today
+- Accuracy was inconsistent (95%+ vs 85-94%) - now unified at 85-94%
+- Rate limits weren't documented per endpoint - now clear
+- OCR thresholds weren't exposed as ENV - now documented
+- External API data usage wasn't transparent - now explicit
+- Load test claims had no evidence - PERFORMANCE_LOAD_REPORT.md created
 
 ## OCR Processing Pipeline
 

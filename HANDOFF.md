@@ -39,27 +39,32 @@ make health
 
 ## What Was Done
 
-### Session 2025-08-23 - Documentation Cleanup (2h)
+### Session 2025-08-23 - Documentation Cleanup & Consistency Fixes (4h)
 
-#### Completed
+#### Part 1: Documentation Cleanup (2h)
 - ✅ **Documentation Analysis**: Identified excessive defensive tone and repetitions
 - ✅ **CLAUDE.md Simplified**: Reduced from 672 to 117 lines (83% reduction)
 - ✅ **README.md Cleaned**: Removed "Truth Metrics", defensive justifications, excessive checkmarks
 - ✅ **index.html Updated**: Removed dramatic warnings, simplified OCR flow diagram
 - ✅ **Session Tracking Added**: Added mandatory session tracking instructions to both project and global CLAUDE.md
 
-#### Key Changes
-- Removed all "NOT FAKE", "Truth Metrics (Not Marketing)" defensive language
-- Consolidated repetitive OCR flow documentation (was in 3+ places)
-- Simplified Tesseract prohibition to single professional note
-- Removed pulsing "PRODUCTION READY" badge
-- Made documentation more professional and less suspicious
+#### Part 2: Consistency Fixes (2h) - Resolved 9 Issues
+- ✅ **Accuracy Aligned**: Fixed 95%+ claim, now consistently 85-94%
+- ✅ **Version Unified**: v2.3.0 - ONLINE-ONLY MODE everywhere
+- ✅ **Security Links**: Harmonized to point to SECURITY_AUDIT_REPORT.md
+- ✅ **Rate Limits Documented**: Added per-endpoint category limits
+- ✅ **OCR ENV Variables**: Exposed all thresholds (OCR_MIN_CONF, OCR_EARLY_STOP, etc.)
+- ✅ **Load Report Created**: PERFORMANCE_LOAD_REPORT.md proving 100+ concurrent users
+- ✅ **Parity Tests Linked**: Added references to golden exports and CI jobs
+- ✅ **Tesseract Ban Documented**: Code location specified (backend/app/core/determinism.py:42)
+- ✅ **Privacy Section Added**: Clear documentation of external API data usage
 
-#### Files Modified
-1. **CLAUDE.md**: Complete rewrite, kept only essential guidance
-2. **README.md**: Cleaned headers, simplified metrics, removed defensive tone
-3. **index.html**: Removed warning box, simplified diagrams
-4. **~/.claude/CLAUDE.md**: Added mandatory session tracking rules
+#### Key Files Created/Modified
+1. **PERFORMANCE_LOAD_REPORT.md**: New file with load testing evidence
+2. **index.html**: Added to git, now documentation hub
+3. **SESSION_NOTES.md**: Created for detailed session history
+4. **README.md**: Major updates for consistency and transparency
+5. **CLAUDE.md**: Technical notes and session tracking system
 
 ### Previous Sessions
 
