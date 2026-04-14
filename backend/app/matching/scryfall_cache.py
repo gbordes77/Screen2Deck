@@ -151,7 +151,7 @@ class ScryfallCache:
                         if card.get(field):
                             try:
                                 card[field] = json.loads(card[field])
-                            except:
+                            except Exception:
                                 card[field] = None
                     
                     logger.info(f"Cache hit for card: {name}")

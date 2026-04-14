@@ -1,4 +1,4 @@
-import json, os, sqlite3, time, requests, unicodedata
+import json, os, sqlite3, time, threading, requests, unicodedata
 from typing import List, Dict, Optional
 from ..config import get_settings
 
@@ -13,6 +13,7 @@ CREATE TABLE IF NOT EXISTS cards (
   data JSON
 );
 CREATE INDEX IF NOT EXISTS idx_name ON cards(name);
+CREATE INDEX IF NOT EXISTS idx_lang ON cards(lang);
 """
 
 def _fold(s: str) -> str:
@@ -28,6 +29,11 @@ class Scryfall:
             con.executescript(SCHEMA)
         self._last_call = 0.0
         self._session = requests.Session()
+        # Cache `all_names` in process memory so that `resolve()` does not
+        # re-open the sqlite file and re-scan the cards table on every call.
+        # Bust the cache after hydrate_from_bulk.
+        self._all_names_cache: Optional[List[str]] = None
+        self._cache_lock = threading.Lock()
 
     # ----- OFFLINE -----
     def hydrate_from_bulk(self, bulk_path=S.SCRYFALL_BULK_PATH):
@@ -41,11 +47,20 @@ class Scryfall:
                 cur.execute("INSERT OR REPLACE INTO cards(id,name,lang,faces,data) VALUES(?,?,?,?,?)",
                             (card.get("id"), card.get("name"), card.get("lang","en"), faces, json.dumps(card)))
             con.commit()
+        with self._cache_lock:
+            self._all_names_cache = None
 
     def all_names(self) -> List[str]:
-        with sqlite3.connect(self.db_path) as con:
-            cur = con.cursor(); cur.execute("SELECT name FROM cards WHERE lang='en'")
-            return [r[0] for r in cur.fetchall()]
+        if self._all_names_cache is not None:
+            return self._all_names_cache
+        with self._cache_lock:
+            if self._all_names_cache is not None:
+                return self._all_names_cache
+            with sqlite3.connect(self.db_path) as con:
+                cur = con.cursor()
+                cur.execute("SELECT name FROM cards WHERE lang='en'")
+                self._all_names_cache = [r[0] for r in cur.fetchall()]
+            return self._all_names_cache
 
     def lookup_exact_ci(self, name: str) -> List[Dict]:
         with sqlite3.connect(self.db_path) as con:

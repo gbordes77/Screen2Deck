@@ -133,7 +133,7 @@ async def websocket_endpoint(
             settings = get_settings()
             payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
             user_id = payload.get("sub")
-        except:
+        except Exception:
             await websocket.close(code=1008, reason="Invalid token")
             return
     

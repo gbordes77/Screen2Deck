@@ -228,8 +228,9 @@ class EnduranceTestUser(FastHttpUser):
         
         if response.status_code == 200:
             job_id = response.json().get("jobId")
-            
+
             # Poll for status
+            data: dict = {}
             for _ in range(10):
                 status_response = self.client.get(f"/api/ocr/status/{job_id}")
                 if status_response.status_code == 200:
@@ -237,7 +238,7 @@ class EnduranceTestUser(FastHttpUser):
                     if data.get("state") in ["completed", "failed"]:
                         break
                 time.sleep(2)
-            
+
             # Export if completed
             if data.get("state") == "completed":
                 self.client.post(

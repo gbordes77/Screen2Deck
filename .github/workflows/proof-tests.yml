@@ -57,69 +57,69 @@ jobs:
           
           # Test 3: Run unit test
           . .venv/bin/activate
-          pytest tests/unit/test_no_tesseract.py -v || true
-      
+          pytest tests/unit/test_no_tesseract.py -v
+
       - name: Unit Tests - MTG Edge Cases
         run: |
-          echo "🎴 === MTG SPECIFIC TESTS ===" 
+          echo "🎴 === MTG SPECIFIC TESTS ==="
           . .venv/bin/activate
-          
+
           # Test normalize (DFC, Split, Accents)
-          pytest tests/unit/test_normalize.py -v || true
-          
+          pytest tests/unit/test_normalize.py -v
+
           # Test parser (Sideboard split)
-          pytest tests/unit/test_parser.py -v || true
-          
+          pytest tests/unit/test_parser.py -v
+
           # Test MTGO lands bug
-          pytest tests/unit/test_mtgo_lands_bug.py -v || true
-      
+          pytest tests/unit/test_mtgo_lands_bug.py -v
+
       - name: Run Benchmark Day0
         run: |
-          echo "📊 === BENCHMARK DAY0 ===" 
+          echo "📊 === BENCHMARK DAY0 ==="
           . .venv/bin/activate
-          
+
           # Create mock validation set if needed
           echo "4 Island" > validation_set/truth/test.txt
           echo "Mock image" > validation_set/images/test.jpg
-          
-          # Run benchmark
+
+          # Run benchmark (fails loudly on regression)
           python tools/bench_runner.py \
             --images validation_set/images \
             --truth validation_set/truth \
-            --out artifacts/reports/day0 || true
-          
+            --out artifacts/reports/day0
+
           # Display metrics
           if [ -f artifacts/reports/day0/metrics.json ]; then
             echo "📈 Metrics:"
             cat artifacts/reports/day0/metrics.json
           fi
-      
+
       - name: Golden Export Tests
         run: |
-          echo "🏆 === GOLDEN EXPORT TESTS ===" 
+          echo "🏆 === GOLDEN EXPORT TESTS ==="
           . .venv/bin/activate
-          
+
           # Create reference exports
           mkdir -p golden_exports/reference
           echo -e "Deck\n4 Island\n\nSideboard\n2 Negate" > golden_exports/reference/test.mtga
           echo -e "4 Island\nSB: 2 Negate" > golden_exports/reference/test.moxfield
-          
+
           # Run golden check
-          python tools/golden_check.py --out artifacts/golden || true
-          
+          python tools/golden_check.py --out artifacts/golden
+
           if [ -f artifacts/golden/golden_results.json ]; then
             echo "📋 Golden Results:"
             cat artifacts/golden/golden_results.json
           fi
-      
+
       - name: Web/Discord Parity Test
         run: |
-          echo "🔄 === WEB/DISCORD PARITY TEST ===" 
+          echo "🔄 === WEB/DISCORD PARITY TEST ==="
           . .venv/bin/activate
-          
+
           # Run parity check
-          python tools/parity_check.py --out artifacts/parity || true
-          
+          python tools/parity_check.py --out artifacts/parity
+
           if [ -f artifacts/parity/parity_results.json ]; then
             echo "⚖️ Parity Results:"
             cat artifacts/parity/parity_results.json

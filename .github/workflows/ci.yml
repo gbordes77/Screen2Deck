@@ -89,13 +89,13 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: test-secret-key-for-ci-testing-only
         run: |
-          cd backend
-          pytest tests/ -v --cov=app --cov-report=xml --cov-report=html
-      
+          pytest tests/ backend/tests/ -v \
+            --cov=backend/app --cov-report=xml --cov-report=html
+
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v3
         with:
-          file: ./backend/coverage.xml
+          file: ./coverage.xml
           flags: backend
           name: backend-coverage
 
@@ -125,7 +125,7 @@ jobs:
       - name: Run type check
         run: |
           cd webapp
-          npm run type-check || true
+          npm run type-check
       
       - name: Run tests
         run: |

@@ -116,7 +116,7 @@ async def get_current_token(credentials: HTTPAuthorizationCredentials = Depends(
     # Try JWT first
     try:
         return verify_token(credentials)
-    except:
+    except Exception:
         # Try API key
         api_key_data = verify_api_key(credentials.credentials)
         if api_key_data:

@@ -97,7 +97,7 @@ class Settings(BaseSettings):
         if isinstance(v, str):
             try:
                 return json.loads(v)
-            except:
+            except Exception:
                 return [v]
         return v
     

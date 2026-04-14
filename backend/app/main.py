@@ -3,10 +3,22 @@ Refactored main application with proper security, job storage, and validation.
 Production-ready FastAPI application for Screen2Deck.
 """
 
+import re
 import uuid
 import time
 from typing import Optional
 from contextlib import asynccontextmanager
+
+# Pre-compiled regex for qty detection on OCR spans (hoisted out of the
+# per-request process_ocr function to avoid re-compiling on every call).
+_QTY_LINE_RX = re.compile(r"^\s*(\d+|[1-9]\dx)\s+\S+")
+
+
+def count_qty_lines(spans) -> int:
+    """Count OCR spans that look like "<qty> <card name>" lines."""
+    return sum(
+        1 for s in spans if _QTY_LINE_RX.match(s["text"].strip().lower())
+    )
 
 # ONLINE-ONLY mode - No offline support
 
@@ -45,7 +57,7 @@ from .pipeline.ocr import run_easyocr_best_of, run_vision_fallback
 from .matching.fuzzy import score_candidates
 from .matching.scryfall_cache import scryfall_cache
 from .matching.scryfall_client import SCRYFALL
-from .business_rules import validate_and_fill
+from .business_rules import apply_mtgo_land_fix, validate_and_fill
 from .routers import health, metrics, auth_router, export_router
 
 # Initialize feature flags
@@ -280,13 +292,8 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         
         await job_storage.update_job(job_id, progress=40)
         
-        # Fallback to Vision if needed
-        import re
-        def count_qty_lines(spans):
-            rx = re.compile(r"^\s*(\d+|[1-9]\dx)\s+\S+")
-            return sum(1 for s in spans if rx.match(s["text"].strip().lower()))
-        
-        if (ocr_raw["mean_conf"] < settings.OCR_MIN_CONF or 
+        # Fallback to Vision if OCR confidence or line count is below threshold
+        if (ocr_raw["mean_conf"] < settings.OCR_MIN_CONF or
             count_qty_lines(ocr_raw["spans"]) < settings.OCR_MIN_LINES) and \
            settings.ENABLE_VISION_FALLBACK:
             best_img = max(variants, key=lambda im: cv2.countNonZero(im))
@@ -306,7 +313,9 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         # Normalize with Scryfall
         normalized = await normalize_deck(parsed)
         
-        # Apply business rules
+        # Apply business rules (MTGO 60+15 segmentation, then sanity checks)
+        text_lines = [s.text for s in spans]
+        normalized = apply_mtgo_land_fix(normalized, text_lines)
         normalized = validate_and_fill(normalized)
         
         t1 = time.time()

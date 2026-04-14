@@ -88,7 +88,7 @@ class IdempotencyKey:
                 try:
                     import importlib.metadata as md
                     ocr_version = md.version("easyocr")
-                except:
+                except Exception:
                     ocr_version = "1.7.1"  # Known version fallback
         except Exception:
             ocr_version = "1.7.1"
