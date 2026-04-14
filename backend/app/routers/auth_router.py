@@ -3,7 +3,7 @@ Authentication endpoints for Screen2Deck API.
 """
 
 from datetime import timedelta
-from typing import Optional
+from typing import Dict, Optional
 from fastapi import APIRouter, HTTPException, Depends, status
 from fastapi.security import OAuth2PasswordRequestForm
 from pydantic import BaseModel, EmailStr
@@ -41,16 +41,15 @@ class UserResponse(BaseModel):
     created_at: str
 
 
-# Mock user storage (replace with database in production)
-mock_users = {
-    "demo": {
-        "id": "user-123",
-        "username": "demo",
-        "email": "demo@screen2deck.com",
-        "hashed_password": pwd_context.hash("demo123"),
-        "created_at": "2024-01-01T00:00:00Z"
-    }
-}
+# Mock user storage (replace with a real database in production).
+#
+# The demo user from earlier revisions was removed: (a) the security
+# auditor flagged hard-coded mock credentials as an H-severity risk,
+# and (b) hashing it at import time via `pwd_context.hash("demo123")`
+# broke under bcrypt 5.x (which rejects the >72-byte self-test string
+# that passlib 1.7.4 uses during backend detection). New users can
+# still be created at runtime via /api/auth/register.
+mock_users: Dict[str, Dict] = {}
 
 
 @router.post(
