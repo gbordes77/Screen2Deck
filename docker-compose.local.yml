@@ -10,8 +10,8 @@ services:
       - OCR_GPU=0
       - SCRYFALL_MODE=offline
       - SCRYFALL_CACHE=/data/scryfall.sqlite
-      - JWT_SECRET_KEY=local-demo-key-with-32-characters-minimum-length
-      - DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d
+      - JWT_SECRET_KEY=${JWT_SECRET_KEY:?JWT_SECRET_KEY is required — set it in .env or your shell}
+      - DATABASE_URL=postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/s2d
       - REDIS_URL=redis://redis:6379/0
       - OCR_MIN_CONF=0.62
       - ALWAYS_VERIFY_SCRYFALL=true
@@ -98,7 +98,7 @@ services:
     networks: [demo]
     environment:
       - POSTGRES_USER=postgres
-      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       - POSTGRES_DB=s2d
     expose: [ "5432" ]
     volumes:

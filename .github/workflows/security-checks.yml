@@ -140,6 +140,45 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Guard against well-known default credentials
+        run: |
+          echo "🔍 Checking for hardcoded default credentials..."
+          set -e
+          violations=0
+          # These strings appeared in previous revisions of the repo and
+          # must never come back. Each one is a known-bad default that
+          # would let an attacker authenticate with zero effort.
+          patterns=(
+            'postgres:postgres'
+            'changeme'
+            'your-super-secret'
+            'dev-secret-key-change-in-production'
+            'local-demo-key-with'
+          )
+          for p in "${patterns[@]}"; do
+            matches=$(grep -RniE "$p" \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude-dir=.next \
+              --exclude='*.md' \
+              --exclude='security-checks.yml' \
+              --exclude='SESSION_NOTES.md' \
+              . || true)
+            if [ -n "$matches" ]; then
+              echo "❌ Default credential pattern '$p' still present:"
+              echo "$matches"
+              violations=$((violations + 1))
+            fi
+          done
+          if [ "$violations" -gt 0 ]; then
+            echo ""
+            echo "❌ $violations default credential pattern(s) detected."
+            echo "Replace them with \${VAR:?} substitution (docker compose) or"
+            echo "External Secrets / sealed-secrets (kubernetes)."
+            exit 1
+          fi
+          echo "✅ No default credentials found"
+
   sbom-generation:
     name: Generate SBOM
     runs-on: ubuntu-latest

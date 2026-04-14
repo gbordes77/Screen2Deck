@@ -86,4 +86,8 @@ metadata:
   namespace: screen2deck
 type: Opaque
 stringData:
-  password: "changeme"  # Change in production
+  # DO NOT commit a real password. Replace via External Secrets /
+  # Sealed Secrets / kubectl create secret at deploy time. The
+  # __REPLACE_ME__ marker is deliberately invalid so Postgres refuses
+  # to boot with well-known creds.
+  password: "__REPLACE_ME__"

@@ -1,13 +1,24 @@
-# Screen2Deck v2.0.2 - Docker Compose Configuration
+# Screen2Deck — Docker Compose configuration
+#
+# Secrets:
+#   All sensitive values come from environment variables (typically a
+#   root-level .env file in dev, or injected by CI/a secret manager in
+#   prod). The `${VAR:?}` syntax fails the `docker compose up` command
+#   if the variable is unset, so we never ship with silent defaults.
+#
+# Required env vars (see .env.example):
+#   POSTGRES_PASSWORD   — database password
+#   JWT_SECRET_KEY      — 32+ char random string for signing JWTs
+#
 # Profiles: core (minimal), discord (bot), full (everything)
-# 
+#
 # Usage:
 #   docker compose --profile core up     # Start core services only
 #   docker compose --profile discord up  # Add Discord bot
-#   make dev                             # Use Makefile commands (recommended)
+#   make dev                             # Use Makefile commands
 #
 # Testing:
-#   make test          # Run unit + integration tests  
+#   make test          # Run unit + integration tests
 #   make bench-day0    # Generate benchmark metrics
 #   make golden        # Validate export formats
 #   make parity        # Check Web/Discord parity
@@ -16,39 +27,54 @@ services:
   redis:
     profiles: ["core"]
     image: redis:7-alpine
-    command: ["redis-server", "--save", "", "--appendonly", "no"]
+    command: ["redis-server", "--appendonly", "yes", "--save", "60", "1000"]
     ports: ["6379:6379"]
-  
+    volumes:
+      - redis_data:/data
+
   postgres:
     profiles: ["core"]
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: postgres
-      POSTGRES_PASSWORD: postgres
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required — set it in .env or your shell}
       POSTGRES_DB: screen2deck
     ports: ["5433:5432"]
     volumes:
       - postgres_data:/var/lib/postgresql/data
-  
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d screen2deck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   backend:
     profiles: ["core"]
     build:
       context: ./backend
       dockerfile: Dockerfile
     env_file: ./backend/.env.docker
+    environment:
+      DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/screen2deck
+      JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required — generate with `openssl rand -base64 32`}
+      GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
     ports: ["8080:8080"]
     volumes:
-      - ./backend/app:/app/app
       - ./backend/app/data:/app/app/data
-    depends_on: [redis, postgres]
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    restart: unless-stopped
     # Note: EasyOCR only, no Tesseract (CI enforced)
-    # Export endpoints are public for testing
     healthcheck:
       test: ["CMD", "curl", "-fsS", "http://localhost:8080/health"]
       interval: 20s
       timeout: 5s
       retries: 10
-  
+
   webapp:
     profiles: ["core"]
     build: ./webapp
@@ -58,7 +84,8 @@ services:
     depends_on:
       backend:
         condition: service_healthy
-  
+    restart: unless-stopped
+
   discord-bot:
     profiles: ["discord"]
     build: ./discord
@@ -72,6 +99,7 @@ services:
 
 volumes:
   postgres_data:
+  redis_data:
 
 networks:
   default:
