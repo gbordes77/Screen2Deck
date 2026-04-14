@@ -359,6 +359,29 @@
   table.metrics .good { color: var(--success); }
   table.metrics .meh  { color: var(--accent); }
 
+  /* Projected / measured badges */
+  .badge {
+    display: inline-block;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    padding: 0.12rem 0.45rem;
+    border-radius: 4px;
+    vertical-align: middle;
+    margin-left: 0.35rem;
+  }
+  .badge.projected {
+    background: rgba(249,115,22,0.15);
+    color: var(--accent);
+    border: 1px solid rgba(249,115,22,0.3);
+  }
+  .badge.measured {
+    background: rgba(34,197,94,0.15);
+    color: var(--success);
+    border: 1px solid rgba(34,197,94,0.3);
+  }
+
   /* Export formats */
   .exports {
     display: grid;
@@ -920,8 +943,19 @@
 <section id="perf">
   <h2><span class="num">10</span> Performance et coût</h2>
   <p class="lead">
-    Les chiffres du pipeline actuel, mesurés ou modélisés selon la colonne.
+    Les chiffres ci-dessous sont <strong style="color:var(--accent)">des projections</strong>,
+    pas des mesures. Ils viennent du modèle d'un agent perf-engineer, de
+    l'arithmétique tokens × prix Gemini, et de recherches web sur les
+    benchmarks publics. Tant que <code>make smoke</code> + un vrai benchmark
+    n'ont pas tourné sur cette branche, traite ces chiffres comme des
+    <em>targets</em>, pas comme des preuves.
   </p>
+  <div class="callout warn">
+    <strong>Important</strong> — Le fichier
+    <a href="../DISCLAIMER.md"><code>DISCLAIMER.md</code></a> à la racine
+    du repo liste exactement quels chiffres sont vérifiés et lesquels
+    sont projetés, avec la commande précise pour les mesurer.
+  </div>
   <table class="metrics">
     <thead>
       <tr>
@@ -932,45 +966,62 @@
     </thead>
     <tbody>
       <tr>
-        <td>p50 latence</td>
+        <td>p50 latence <span class="badge projected">projeté</span></td>
         <td class="good mono">~1,2 s</td>
         <td class="mono">~2,0 s</td>
       </tr>
       <tr>
-        <td>p95 latence</td>
+        <td>p95 latence <span class="badge projected">projeté</span></td>
         <td class="good mono">~2,7 s</td>
         <td class="mono">~4,1 s</td>
       </tr>
       <tr>
-        <td>Précision card name</td>
+        <td>Précision card name <span class="badge projected">projeté</span></td>
         <td class="good mono">90–97 %</td>
         <td class="mono">85–94 %</td>
       </tr>
       <tr>
-        <td>Coût par image</td>
-        <td class="mono">~$0,00008 (après free tier)</td>
+        <td>Coût par image <span class="badge projected">projeté</span></td>
+        <td class="mono">~$0,0001 (après free tier)</td>
         <td class="good mono">0 $</td>
       </tr>
       <tr>
-        <td>Dépendance réseau</td>
+        <td>Dépendance réseau <span class="badge measured">vérifié</span></td>
         <td class="mono">Gemini + Scryfall</td>
         <td class="mono">Scryfall seul</td>
       </tr>
       <tr>
-        <td>Cache hit rate</td>
-        <td class="mono">50–80 %</td>
-        <td class="mono">50–80 %</td>
+        <td>Cache hit rate <span class="badge projected">non vérifié</span></td>
+        <td class="mono">50–80 % (ancien README)</td>
+        <td class="mono">50–80 % (ancien README)</td>
       </tr>
     </tbody>
   </table>
-  <p>
-    Gemini 3.1 Flash-Lite est facturé <code>$0,25 / $1,50</code> par million
-    de tokens input/output. Une image MTGA coûte environ 258 tokens input
-    + ~300 tokens output, soit <strong>~$0,00012</strong> par requête
-    non cachée. Le free tier couvre 250 requêtes par jour, et on déduplique
-    par hash d'image, donc pour un usage perso ou une petite communauté tu
-    ne sors littéralement pas du palier gratuit.
+  <p class="small">
+    <strong>Origine des chiffres</strong> — p50/p95 : modèle de l'agent
+    performance-engineer sur un screenshot MTGA 1920×1080 typique.
+    Précision : estimation qualitative OCR-research agent.
+    Coût : arithmétique basée sur les tarifs Gemini 3.1 Flash-Lite
+    ($0,25/$1,50 par 1M tokens) et ~258 tokens input + ~300 tokens output
+    par image — ignore les surcoûts de verbosité du modèle, donc
+    probablement sous-estimé de 30-50 %.
+    Cache hit rate : copié du README existant, jamais re-mesuré sur ce
+    refactor.
   </p>
+  <p>
+    <strong style="color:var(--success)">Pour passer ces chiffres
+    de "projeté" à "mesuré"</strong>, il suffit de lancer :
+  </p>
+  <pre><code># 1. Remplir .env avec POSTGRES_PASSWORD, JWT_SECRET_KEY, GEMINI_API_KEY
+# 2. Pré-hydrater le cache Scryfall
+python backend/scripts/download_scryfall.py
+
+# 3. Smoke test end-to-end (boot + upload + verify + export)
+make smoke
+
+# 4. Benchmark complet contre le validation_set
+make bench-day0
+</code></pre>
 </section>
 
 <!-- 11. Security -->

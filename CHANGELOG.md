@@ -7,6 +7,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [2.4.0] - 2026-04-14 - Vision-primary pipeline + security sprints
 
+> **⚠️ Status of the performance claims in this entry**
+>
+> The latency, accuracy and cost figures in the "Performance" section
+> below are **projections** — outputs of a performance-engineer agent's
+> model plus arithmetic on published Gemini pricing — not measurements
+> taken on this branch. Everything in "Added", "Changed", "Removed",
+> and "Security" is real code that landed in real commits; the numbers
+> are the optimistic target. See [`DISCLAIMER.md`](./DISCLAIMER.md) for
+> the exact list of verified vs projected claims, and run `make smoke`
+> followed by `make bench-day0` to turn them into real measurements.
+
 ### Added
 - **Vision provider abstraction** (`backend/app/pipeline/vision_providers.py`) with a `VisionProvider` ABC, `GeminiVisionProvider` (primary, `gemini-3.1-flash-lite-preview`), and `ClaudeVisionProvider` (fallback, `claude-haiku-4-5`). Configurable via `VISION_PROVIDER=gemini,claude`.
 - **Structured JSON output** (`extract_deck_structured`) using Gemini `response_schema` and Claude forced tool-use. Returns typed `{main, side}` directly, killing the regex parser on the happy path. New `run_vision_chain_structured` walker.
@@ -50,11 +61,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Scrubbed every default credential from compose + k8s manifests.
 - Added a CI guard that fails on reintroduction of known-bad defaults.
 
-### Performance
-- p95 latency: 4.1 s → 2.7 s (−34%) on the Vision-primary path.
-- 60-card Scryfall resolution: ~7 s → ~500 ms via batch endpoint.
-- Dead code removed: ~1173 LOC across 3 backend modules + 7 fictional tests.
-- Pipeline LOC: −60% on the fast path (no preprocessing / EasyOCR / regex parser when Vision succeeds).
+### Performance (projected — see DISCLAIMER.md)
+- p95 latency: 4.1 s → 2.7 s (−34%) on the Vision-primary path — **projection** from the performance-engineer agent's model, not measured on this branch.
+- 60-card Scryfall resolution: ~7 s → ~500 ms via batch endpoint — **arithmetic** (60 × 120 ms vs 1 × 500 ms), not timed end-to-end.
+- Dead code removed: ~1173 LOC across 3 backend modules + 7 fictional tests — **verified** via `git show --shortstat`.
+- Pipeline LOC: −60 % on the fast path when Vision succeeds — **eyeballed**, not diff'd line-by-line.
 
 ## [2.3.0] - 2025-01-21 - ONLINE-ONLY Evolution
 

@@ -1,5 +1,61 @@
 # Session History - Screen2Deck Project
 
+## 2026-04-14 (late) — Honesty pass : projected vs measured
+
+Après la session principale ci-dessous, question directe de
+l'utilisateur : "quel est ton degré de confiance sur le fonctionnement
+du projet tel que tu l'as décrit ?". La réponse honnête a révélé que
+plusieurs chiffres présentés comme des faits dans `how-it-works.html`,
+`CHANGELOG.md`, `README.md`, `CLAUDE.md` et `HANDOFF.md` sont en fait
+des **projections** (modèle d'un agent perf, arithmétique sur les
+tarifs Gemini, copié de l'ancien README) et non des mesures. Cette
+passe d'honnêteté corrige ça :
+
+- **`DISCLAIMER.md`** (nouveau à la racine) — liste explicite de ce
+  qui est vérifié vs projeté, avec la commande exacte pour mesurer
+  chaque item. 3 colonnes : ✅ Verified, ⚠️ Projected, 🤷 Never executed.
+- **`docs/how-it-works.html`** — ajout de badges visuels
+  `projeté` / `vérifié` sur chaque ligne du tableau de métriques,
+  plus un callout qui pointe vers `DISCLAIMER.md`, plus une note qui
+  explique l'origine de chaque chiffre (le coût par image a été
+  corrigé de $0,00008 à ~$0,0001 pour refléter que j'avais oublié
+  le coût des tokens output).
+- **`CHANGELOG.md`** — ajout d'un bandeau en tête de l'entrée v2.4.0
+  qui dit "les chiffres performance sont des projections, pas des
+  mesures", et ajout de tags `**projection**` / `**arithmetic**` /
+  `**verified**` / `**eyeballed**` à chaque ligne de la section
+  Performance.
+
+### Ce qui est vraiment certain (vérifiable)
+- Les 30+ commits, hashes, paths de fichiers, diffs
+- Le code compile syntaxiquement (ast.parse + tsc --noEmit)
+- Les suppressions sont propres (0 référence orpheline en grep)
+- `Test Backend: SUCCESS` + `Test Frontend: SUCCESS` vus au moins une fois en CI
+- −1173 LOC de code mort retirés (`git show --shortstat 824d4cb`)
+- La clé OpenAI n'était pas dans git history (`git log -S 'sk-proj-'`)
+
+### Ce qui a été écrit mais jamais exécuté
+- `vision_providers.extract_deck_structured` pour Gemini et Claude
+- `scryfall_client.batch_resolve`
+- `business_rules.apply_mtgo_land_fix` (réécriture post-stub)
+- `main.py::process_ocr` sur le branch Vision-primary
+- `main.py::normalize_deck` après rewrite async
+- `tests/unit/test_business_rules.py` + `test_exporters.py`
+- `tests/smoke_test.sh`
+- `backend/scripts/download_scryfall.py` après rewrite
+
+Le smoke test (`make smoke`) qui a été ajouté dans la session
+précédente existe justement pour faire passer la majorité de ces
+items de "jamais exécuté" à "vérifié" en une seule commande.
+
+### Confiance globale recalibrée
+- **Structure architecturale décrite** : ~90 % (j'ai lu le code)
+- **Code fonctionne end-to-end** : ~55 % jusqu'à `make smoke` vert
+- **Chiffres de perf annoncés** : ~30 % (projections, marquées comme telles maintenant)
+- **Config secrets / CI / infra** : ~80 % (testé au moins par CI)
+
+---
+
 ## 2026-04-14 — Re-architecture v2.4.0 + sprints sécurité + Vision-primary + PR CI
 
 Session d'une journée qui a produit **30 commits** sur la branche
