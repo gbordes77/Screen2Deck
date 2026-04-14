@@ -54,8 +54,13 @@ class Settings(BaseSettings):
     SCRYFALL_DB: str = Field("./app/data/scryfall_cache.sqlite", env="SCRYFALL_DB")
     SCRYFALL_BULK_PATH: str = Field("./app/data/scryfall-default-cards.json", env="SCRYFALL_BULK_PATH")
     
-    # OpenAI
-    OPENAI_API_KEY: Optional[str] = Field(None, env="OPENAI_API_KEY")
+    # Vision providers — ordered chain, first available wins.
+    # Default: Gemini 2.5 Flash primary, Claude Haiku 4.5 fallback.
+    VISION_PROVIDER: str = Field("gemini,claude", env="VISION_PROVIDER")
+    GEMINI_API_KEY: Optional[str] = Field(None, env="GEMINI_API_KEY")
+    GEMINI_MODEL: str = Field("gemini-2.5-flash", env="GEMINI_MODEL")
+    ANTHROPIC_API_KEY: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
+    ANTHROPIC_MODEL: str = Field("claude-haiku-4-5", env="ANTHROPIC_MODEL")
     
     # Monitoring
     ENABLE_METRICS: bool = Field(True, env="ENABLE_METRICS")

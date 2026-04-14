@@ -15,6 +15,14 @@ class Settings:
     OCR_MIN_SPAN_CONF: float = float(os.getenv("OCR_MIN_SPAN_CONF", 0.3))  # Min confidence per text span
     SUPERRES_MIN_WIDTH: int = int(os.getenv("SUPERRES_MIN_WIDTH", 1200))  # Min width to trigger super-resolution
 
+    # Vision providers (comma-separated chain, first available wins).
+    # Default: Gemini 2.5 Flash as primary, Claude Haiku 4.5 as fallback.
+    VISION_PROVIDER: str = os.getenv("VISION_PROVIDER", "gemini,claude")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"
     ENABLE_SCRYFALL_ONLINE_FALLBACK: bool = os.getenv("ENABLE_SCRYFALL_ONLINE_FALLBACK","true").lower()=="true"

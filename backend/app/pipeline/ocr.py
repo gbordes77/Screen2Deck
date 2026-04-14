@@ -1,46 +1,44 @@
+import logging
+import threading
+
 import numpy as np
 import easyocr
 import torch
-import logging
-import time
+
 from ..config import get_settings
+from .vision_providers import run_vision_chain
 
 logger = logging.getLogger(__name__)
 S = get_settings()
 
-# Global reader instance (initialized on first use)
+# Global reader instance (initialized on first use) guarded by a real
+# threading.Lock to avoid the TOCTOU race of the previous busy-wait.
 _reader = None
-_reader_initializing = False
+_reader_lock = threading.Lock()
+
 
 def get_reader():
-    """Get or initialize EasyOCR reader with proper model download handling."""
-    global _reader, _reader_initializing
-    
+    """Get or initialize the EasyOCR reader in a thread-safe way."""
+    global _reader
+
     if _reader is not None:
         return _reader
-    
-    if _reader_initializing:
-        # Wait for another thread that's initializing
-        logger.info("⏳ Waiting for EasyOCR model initialization by another process...")
-        while _reader_initializing and _reader is None:
-            time.sleep(1)
-        return _reader
-    
-    try:
-        _reader_initializing = True
+
+    with _reader_lock:
+        if _reader is not None:
+            return _reader
         logger.info("📥 Initializing EasyOCR reader (first use - downloading models ~64MB)...")
         logger.info("⏳ This may take 2-3 minutes on first run. Please wait...")
-        
-        # Initialize reader with GPU if available
-        _reader = easyocr.Reader(["en","fr","de","es"], gpu=torch.cuda.is_available())
-        
-        logger.info("✅ EasyOCR models ready! Subsequent OCR will be fast (3-5 seconds).")
-        return _reader
-    except Exception as e:
-        logger.error(f"❌ Failed to initialize EasyOCR: {e}")
-        raise
-    finally:
-        _reader_initializing = False
+        try:
+            _reader = easyocr.Reader(
+                ["en", "fr", "de", "es"],
+                gpu=torch.cuda.is_available(),
+            )
+            logger.info("✅ EasyOCR models ready! Subsequent OCR will be fast (3-5 seconds).")
+            return _reader
+        except Exception as e:
+            logger.error("❌ Failed to initialize EasyOCR: %s", e)
+            raise
 
 def run_easyocr(img: np.ndarray, min_confidence: float = 0.3):
     """Run EasyOCR with confidence filtering.
@@ -116,69 +114,14 @@ def run_easyocr_best_of(images, confidence_threshold=None, min_confidence=None):
     return best
 
 def run_vision_fallback(img: np.ndarray):
-    """Use OpenAI Vision API as fallback when EasyOCR fails."""
-    import os
-    from openai import OpenAI
-    import cv2
-    import base64
-    
-    api_key = os.getenv("OPENAI_API_KEY")
-    if not api_key or api_key == "TO_BE_SET":
-        logger.warning("OpenAI API key not configured, falling back to EasyOCR")
-        return run_easyocr(img)
-    
-    try:
-        client = OpenAI(api_key=api_key)
-        
-        # Convert image to base64
-        _, buffer = cv2.imencode('.jpg', img)
-        img_base64 = base64.b64encode(buffer).decode('utf-8')
-        
-        # Call OpenAI Vision API
-        response = client.chat.completions.create(
-            model="gpt-4-vision-preview",
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": """Extract ALL Magic: The Gathering cards from this image.
-                            Return ONLY the card names and quantities in this format:
-                            4 Lightning Bolt
-                            2 Counterspell
-                            
-                            For MTGA format where quantities appear as 'x2' below card names, combine them.
-                            Include EVERY card you can see, including basic lands.
-                            Separate mainboard and sideboard with the word 'Sideboard' on its own line."""
-                        },
-                        {
-                            "type": "image_url",
-                            "image_url": {
-                                "url": f"data:image/jpeg;base64,{img_base64}"
-                            }
-                        }
-                    ]
-                }
-            ],
-            max_tokens=4000
-        )
-        
-        content = response.choices[0].message.content
-        if not content:
-            return run_easyocr(img)
-        
-        # Parse OpenAI response into our format
-        spans = []
-        for line in content.split('\n'):
-            line = line.strip()
-            if line:
-                spans.append({"text": line, "conf": 0.95})  # High confidence for OpenAI
-        
-        mean_conf = 0.95 if spans else 0.0
-        logger.info(f"✅ OpenAI Vision detected {len(spans)} text spans")
-        return {"spans": spans, "mean_conf": mean_conf}
-        
-    except Exception as e:
-        logger.error(f"OpenAI Vision API error: {e}")
-        return run_easyocr(img)
+    """Vision fallback dispatcher.
+
+    Delegates to the configured VisionProvider chain (default
+    Gemini → Claude). On a total failure, falls back to a fresh EasyOCR
+    pass so the request never returns empty.
+    """
+    result = run_vision_chain(img)
+    if result.get("spans"):
+        return result
+    logger.warning("Vision fallback chain returned nothing; using EasyOCR pass")
+    return run_easyocr(img)
