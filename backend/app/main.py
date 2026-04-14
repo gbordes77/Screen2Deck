@@ -63,7 +63,6 @@ from .pipeline.preprocess import preprocess_variants
 from .pipeline.ocr import run_easyocr_best_of, run_vision_fallback
 from .pipeline.vision_providers import run_vision_chain_structured
 from .matching.fuzzy import score_candidates
-from .matching.scryfall_cache import scryfall_cache
 from .matching.scryfall_client import SCRYFALL
 from .business_rules import apply_mtgo_land_fix, validate_and_fill
 from .routers import health, metrics, auth_router, export_router
@@ -107,7 +106,6 @@ async def lifespan(app: FastAPI):
             "(run scripts/download_scryfall.py to pre-cache)",
             bulk_path,
         )
-    # scryfall_cache is already initialized
     
     # Initialize telemetry
     if settings.ENABLE_TRACING:
@@ -124,7 +122,7 @@ async def lifespan(app: FastAPI):
     await job_storage.disconnect()
     
     # Close Scryfall cache
-    await scryfall_cache.close()
+    # (scryfall_client uses requests.Session; no explicit close needed.)
     
     # Shutdown telemetry
     if settings.ENABLE_TRACING:
