@@ -39,7 +39,7 @@ test.describe('API Parity - UI vs API vs Goldens', () => {
     
     // Step 4: Export via UI
     const exportButton = page.getByRole('button', { name: /export.*mtga|mtga.*export/i });
-    const downloadPromise = page.waitForDownload();
+    const downloadPromise = page.waitForEvent('download');
     await exportButton.click();
     const download = await downloadPromise;
     
@@ -69,9 +69,7 @@ test.describe('API Parity - UI vs API vs Goldens', () => {
     const testImage = TestData.TEST_IMAGES.MTGA_DECK_1;
     const goldenData = await TestData.loadGolden(testImage);
     
-    if (!goldenData) {
-      test.skip('No golden data available for this test');
-    }
+    test.skip(!goldenData, 'No golden data available for this test');
 
     // Process via API to get structured data
     const imagePath = TestData.getImagePath(testImage);
@@ -148,7 +146,7 @@ test.describe('API Parity - UI vs API vs Goldens', () => {
       const exportButton = page.getByRole('button', { name: new RegExp(`export.*${format}|${format}.*export`, 'i') });
       
       if (await exportButton.isVisible()) {
-        const downloadPromise = page.waitForDownload();
+        const downloadPromise = page.waitForEvent('download');
         await exportButton.click();
         const download = await downloadPromise;
         

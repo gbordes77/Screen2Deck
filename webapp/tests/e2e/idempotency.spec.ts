@@ -160,7 +160,12 @@ test.describe('Idempotency - Caching and Duplicate Handling', () => {
     }
     
     // Results should be different
-    expect(results[0].content).not.toBe(results[1].content);
+    expect(results.length).toBeGreaterThanOrEqual(2);
+    const first = results[0];
+    const second = results[1];
+    expect(first).toBeDefined();
+    expect(second).toBeDefined();
+    expect(first!.content).not.toBe(second!.content);
     console.log('✅ Different images produce different results');
   });
 });
