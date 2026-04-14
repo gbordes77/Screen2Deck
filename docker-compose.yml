@@ -53,7 +53,15 @@ services:
     build:
       context: ./backend
       dockerfile: Dockerfile
-    env_file: ./backend/.env.docker
+    # Optional env_file: gitignored in the repo so CI checkouts don't
+    # have it; the `environment:` block below carries every setting
+    # the backend actually needs at boot. Developers who want to keep
+    # a personal backend/.env.docker can drop it in and its values
+    # will be picked up (and overridden by the explicit `environment:`
+    # entries below when there's a collision).
+    env_file:
+      - path: ./backend/.env.docker
+        required: false
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/screen2deck
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required — generate with `openssl rand -base64 32`}
