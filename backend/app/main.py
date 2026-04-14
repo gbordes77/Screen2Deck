@@ -44,7 +44,13 @@ from .core.metrics_minimal import (
     create_metrics_app, track_ocr_request, record_cache_access, 
     record_export, OCR_REQUESTS, JOBS_INFLIGHT
 )
-from .auth import get_current_token, TokenData, create_access_token, require_permission
+from .auth import (
+    TokenData,
+    create_access_token,
+    get_current_token,
+    get_optional_token,
+    require_permission,
+)
 
 # Application imports
 from .telemetry import logger, new_trace, telemetry
@@ -173,7 +179,7 @@ app.include_router(export_router, prefix="/api/export", tags=["export"])
 async def upload_image(
     request: Request,
     file: UploadFile = File(..., description="Image file to process"),
-    token_data: Optional[TokenData] = None  # Optional auth for public endpoint
+    token_data: Optional[TokenData] = Depends(get_optional_token),
 ):
     """
     Upload an image for OCR processing.
@@ -439,7 +445,7 @@ async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:
 )
 async def get_job_status(
     job_id: str,
-    token_data: Optional[TokenData] = None  # Optional auth
+    token_data: Optional[TokenData] = Depends(get_optional_token),
 ):
     """
     Get job status and results.
@@ -450,24 +456,29 @@ async def get_job_status(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail={"code": VALIDATION_ERROR, "message": "Invalid job ID format"}
         )
-    
+
     # Get job from storage
     job = await job_storage.get_job(job_id)
-    
+
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
             detail={"code": "JOB_NOT_FOUND", "message": "Job not found"}
         )
-    
-    # Check authorization if job has user_id
-    if job.get("user_id") and token_data:
-        if job["user_id"] != token_data.job_id:
+
+    # IDOR protection: a job owned by an authenticated user is only
+    # visible to that user. Anonymous jobs (no user_id on the record)
+    # remain fetchable by anyone holding the UUID, which preserves the
+    # current anonymous upload flow.
+    owner = job.get("user_id")
+    if owner:
+        caller = token_data.job_id if token_data else None
+        if caller != owner:
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"code": UNAUTHORIZED, "message": "Access denied"}
+                detail={"code": UNAUTHORIZED, "message": "Access denied"},
             )
-    
+
     return StatusResponse(
         state=job["state"],
         progress=job.get("progress", 0),

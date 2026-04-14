@@ -1,19 +1,68 @@
 """
-Authentication middleware for FastAPI.
-Handles JWT and API key authentication with proper security.
+Authentication + rate-limit middleware for FastAPI.
+
+Responsibilities:
+- Always populate `request.state.token_data` (Optional[TokenData]) so
+  every downstream dependency can decide whether it requires auth.
+- Apply IP-based rate limiting on public OCR endpoints.
+- NEVER silently bypass authentication: if a valid bearer token is
+  present it is validated and the caller identity is captured; if not,
+  the request flows with `token_data = None` and endpoint-level
+  dependencies decide whether that is acceptable.
+
+The IDOR fix: the previous version short-circuited on rate-limited
+paths and on /api/export/* with `return await call_next(request)`,
+which meant the middleware never parsed the Authorization header,
+`request.state.token_data` was never set, and the ownership check in
+`get_job_status` (`if job.get("user_id") and token_data:`) was dead
+code — any caller holding a job UUID could read any user's deck.
 """
 
-from typing import Optional, Callable
-from fastapi import Request, HTTPException, status
+from typing import Callable, Optional
+
+from fastapi import HTTPException, Request, status
 from fastapi.security.utils import get_authorization_scheme_param
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import Response
 import time
 
-from ..auth import verify_token, verify_api_key, TokenData
+from ..auth import TokenData, verify_api_key
 from ..telemetry import logger
 
-# Public endpoints that don't require authentication
+
+def _parse_bearer(authorization: str) -> Optional[TokenData]:
+    """Parse an Authorization header, returning TokenData or None.
+
+    Returns None for both "no header" and "invalid token" — the caller
+    decides whether to 401 at the endpoint layer via
+    `Depends(get_current_token)` or to allow anonymous via
+    `Depends(get_optional_token)`.
+    """
+    scheme, credentials = get_authorization_scheme_param(authorization)
+    if scheme.lower() != "bearer" or not credentials:
+        return None
+
+    try:
+        from jose import jwt, JWTError
+
+        from ..core.config import settings
+
+        payload = jwt.decode(
+            credentials,
+            settings.JWT_SECRET_KEY,
+            algorithms=[settings.JWT_ALGORITHM],
+        )
+        return TokenData(
+            job_id=payload.get("job_id"),
+            permissions=payload.get("permissions", []),
+        )
+    except Exception:
+        api_key_data = verify_api_key(credentials)
+        if api_key_data:
+            return TokenData(permissions=api_key_data.permissions)
+    return None
+
+# Public endpoints that skip both auth parsing and rate limiting entirely.
 PUBLIC_ENDPOINTS = {
     "/",
     "/health",
@@ -23,103 +72,60 @@ PUBLIC_ENDPOINTS = {
     "/redoc",
 }
 
-# Rate-limited public endpoints
+# Anonymous-friendly endpoints that still get IP rate-limited.
 RATE_LIMITED_PUBLIC = {
     "/api/ocr/upload": {"requests_per_minute": 10, "burst": 3},
     "/api/ocr/status": {"requests_per_minute": 60, "burst": 10},
+    "/api/export/": {"requests_per_minute": 20, "burst": 5},
 }
 
+
 class AuthMiddleware(BaseHTTPMiddleware):
+    """Optional-auth middleware: populates state, rate-limits, never 401s.
+
+    Endpoint-level `Depends(get_optional_token)` or `Depends(get_current_token)`
+    is responsible for deciding whether the (possibly absent) token is
+    acceptable for the operation.
     """
-    Authentication middleware that enforces JWT/API key authentication.
-    """
-    
+
     def __init__(self, app, skip_auth_paths: Optional[set] = None):
         super().__init__(app)
         self.skip_auth_paths = skip_auth_paths or PUBLIC_ENDPOINTS
-        self.rate_limits = {}  # Track rate limits per IP
-        
+        self.rate_limits: dict = {}
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
-        """Process request through authentication."""
         path = request.url.path
-        
-        # Skip auth for public endpoints
+        request.state.token_data = None
+
         if path in self.skip_auth_paths:
             return await call_next(request)
-        
-        # Skip auth for export endpoints (public for testing)
-        if path.startswith("/api/export/"):
-            return await call_next(request)
-        
-        # Check if endpoint is rate-limited public
+
         for endpoint, limits in RATE_LIMITED_PUBLIC.items():
             if path.startswith(endpoint):
                 if not await self._check_rate_limit(request, limits):
                     raise HTTPException(
                         status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                        detail="Rate limit exceeded"
+                        detail="Rate limit exceeded",
                     )
-                # Allow without auth but with rate limiting
-                return await call_next(request)
-        
-        # Extract authorization header
+                break
+
         authorization = request.headers.get("Authorization")
-        if not authorization:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Authorization header missing",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        scheme, credentials = get_authorization_scheme_param(authorization)
-        
-        # Validate credentials
-        token_data = None
-        
-        if scheme.lower() == "bearer":
-            # Try JWT token
-            try:
-                from jose import jwt, JWTError
-                from ..core.config import settings
-                
-                payload = jwt.decode(
-                    credentials, 
-                    settings.JWT_SECRET_KEY, 
-                    algorithms=[settings.JWT_ALGORITHM]
+        if authorization:
+            request.state.token_data = _parse_bearer(authorization)
+            if request.state.token_data is not None:
+                logger.info(
+                    "Authenticated request to %s with permissions: %s",
+                    path,
+                    request.state.token_data.permissions,
                 )
-                token_data = TokenData(
-                    job_id=payload.get("job_id"),
-                    permissions=payload.get("permissions", [])
+            else:
+                logger.warning(
+                    "Invalid bearer token on %s; proceeding anonymously",
+                    path,
                 )
-            except JWTError as e:
-                # Try API key as fallback
-                api_key_data = verify_api_key(credentials)
-                if api_key_data:
-                    token_data = TokenData(permissions=api_key_data.permissions)
-                else:
-                    logger.warning(f"Invalid token from {request.client.host}: {e}")
-                    raise HTTPException(
-                        status_code=status.HTTP_401_UNAUTHORIZED,
-                        detail="Invalid authentication credentials",
-                        headers={"WWW-Authenticate": "Bearer"},
-                    )
-        else:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid authentication scheme",
-                headers={"WWW-Authenticate": "Bearer"},
-            )
-        
-        # Store token data in request state for use in endpoints
-        request.state.token_data = token_data
-        
-        # Log authenticated request
-        logger.info(f"Authenticated request to {path} with permissions: {token_data.permissions}")
-        
-        # Process request
-        response = await call_next(request)
-        return response
-    
+
+        return await call_next(request)
+
     async def _check_rate_limit(self, request: Request, limits: dict) -> bool:
         """Check if request is within rate limits."""
         client_ip = self._get_client_ip(request)

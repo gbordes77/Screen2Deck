@@ -121,12 +121,27 @@ async def get_current_token(credentials: HTTPAuthorizationCredentials = Depends(
         api_key_data = verify_api_key(credentials.credentials)
         if api_key_data:
             return TokenData(permissions=api_key_data.permissions)
-        
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+from fastapi import Request as _FastAPIRequest
+
+
+async def get_optional_token(request: _FastAPIRequest) -> Optional[TokenData]:
+    """Read `request.state.token_data` populated by ``AuthMiddleware``.
+
+    Returns None when no token is present or the token is invalid —
+    endpoints that still need caller identity must enforce it
+    themselves (for example in the ownership check of a stored job).
+    Endpoints that require a valid token must use
+    ``Depends(get_current_token)`` instead.
+    """
+    return getattr(request.state, "token_data", None)
 
 def require_permission(permission: str):
     """Decorator to require specific permission."""
