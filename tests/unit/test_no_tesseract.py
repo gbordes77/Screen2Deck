@@ -28,13 +28,30 @@ def test_no_tesseract_in_requirements():
         assert "pytesseract" not in content, f"Found pytesseract in {req_file.name}"
 
 def test_no_tesseract_in_code():
-    """Source code must not import or use tesseract."""
+    """Source code must not import the tesseract / pytesseract Python
+    modules.
+
+    We match on actual import statements (``import pytesseract``,
+    ``from pytesseract import ...``) rather than loose substring
+    because the project legitimately mentions the word "tesseract" in
+    a handful of places whose purpose is to *forbid* it — notably
+    ``backend/app/core/determinism.py`` which raises a RuntimeError
+    when the binary is present, and ``backend/app/api/health.py``
+    which exposes an "anti_tesseract" health field.
+    """
+    import re
     from pathlib import Path
+
     backend_dir = Path(__file__).parent.parent.parent / "backend"
-    
+    import_pattern = re.compile(
+        r"^\s*(?:import|from)\s+(?:py)?tesseract\b", re.MULTILINE
+    )
+
     for py_file in backend_dir.rglob("*.py"):
         if "test" in str(py_file):  # Skip test files
             continue
-        content = py_file.read_text().lower()
-        assert "tesseract" not in content, f"Found tesseract reference in {py_file}"
-        assert "pytesseract" not in content, f"Found pytesseract reference in {py_file}"
+        content = py_file.read_text()
+        match = import_pattern.search(content)
+        assert match is None, (
+            f"Found tesseract import in {py_file}: {match.group(0) if match else ''}"
+        )
