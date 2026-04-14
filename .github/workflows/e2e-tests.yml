@@ -24,6 +24,14 @@ env:
   DATASET_DIR: ./validation_set
   ENABLE_VISION_FALLBACK: "false"
 
+# docker-compose.yml uses `${VAR:?}` substitution for secrets so the
+# compose up command fails loudly when the variables are unset. CI
+# must supply synthetic values; production uses real ones from a
+# secret manager.
+env:
+  POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
+  JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+
 jobs:
   e2e-tests:
     runs-on: ubuntu-latest
@@ -50,7 +58,7 @@ jobs:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
           POSTGRES_DB: screen2deck
         options: >-
           --health-cmd pg_isready
@@ -91,7 +99,7 @@ jobs:
       - name: Start backend
         working-directory: ./backend
         env:
-          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/screen2deck
+          DATABASE_URL: postgresql://postgres:ci-postgres-password-for-testing-only@localhost:5432/screen2deck
           REDIS_URL: redis://localhost:6379
           SCRYFALL_API_URL: https://api.scryfall.com
           CORS_ORIGINS: http://localhost:3000
@@ -160,7 +168,7 @@ jobs:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
           POSTGRES_DB: screen2deck
 
     steps:
@@ -216,7 +224,7 @@ jobs:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
           POSTGRES_DB: screen2deck
 
     steps:
@@ -268,7 +276,7 @@ jobs:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
           POSTGRES_DB: screen2deck
 
     steps:
@@ -323,7 +331,7 @@ jobs:
           - 5432:5432
         env:
           POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
+          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
           POSTGRES_DB: screen2deck
 
     steps:
