@@ -19,7 +19,7 @@ class Settings:
     # Default: Gemini 2.5 Flash as primary, Claude Haiku 4.5 as fallback.
     VISION_PROVIDER: str = os.getenv("VISION_PROVIDER", "gemini,claude")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
 

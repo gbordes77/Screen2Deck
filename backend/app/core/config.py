@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     # Default: Gemini 2.5 Flash primary, Claude Haiku 4.5 fallback.
     VISION_PROVIDER: str = Field("gemini,claude", env="VISION_PROVIDER")
     GEMINI_API_KEY: Optional[str] = Field(None, env="GEMINI_API_KEY")
-    GEMINI_MODEL: str = Field("gemini-2.5-flash", env="GEMINI_MODEL")
+    GEMINI_MODEL: str = Field("gemini-3.1-flash-lite-preview", env="GEMINI_MODEL")
     ANTHROPIC_API_KEY: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL: str = Field("claude-haiku-4-5", env="ANTHROPIC_MODEL")
     

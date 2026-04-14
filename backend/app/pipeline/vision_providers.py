@@ -7,13 +7,13 @@ path; this module introduces a small provider abstraction so that
 operators can pick between modern vendors without touching the
 pipeline code.
 
-Default chain: Gemini 2.5 Flash (primary) → Claude Haiku 4.5 (fallback).
+Default chain: Gemini 3.1 Flash-Lite (primary) → Claude Haiku 4.5 (fallback).
 
 Configuration:
-  VISION_PROVIDER=gemini,claude   # comma-separated chain, in priority order
+  VISION_PROVIDER=gemini,claude            # comma-separated chain, in priority order
   GEMINI_API_KEY=...
   ANTHROPIC_API_KEY=...
-  GEMINI_MODEL=gemini-2.5-flash   # optional override
+  GEMINI_MODEL=gemini-3.1-flash-lite-preview  # optional override
   ANTHROPIC_MODEL=claude-haiku-4-5
 """
 
@@ -93,7 +93,13 @@ class VisionProvider(ABC):
 
 
 class GeminiVisionProvider(VisionProvider):
-    """Gemini 2.5 Flash — bench-leading cost and accuracy for image OCR (2026)."""
+    """Gemini 3.1 Flash-Lite — best cost/speed/quality combo for image OCR (April 2026).
+
+    At $0.25/$1.50 per 1M input/output tokens and ~258 tokens per image,
+    a Vision fallback call costs roughly $0.00008, or $0.08 per 1000
+    deck scans — well under the budget of any project that still has
+    EasyOCR as its primary path.
+    """
 
     name = "gemini"
 
@@ -103,7 +109,11 @@ class GeminiVisionProvider(VisionProvider):
         model: Optional[str] = None,
     ) -> None:
         self._api_key = api_key or getattr(_S, "GEMINI_API_KEY", None)
-        self._model = model or getattr(_S, "GEMINI_MODEL", None) or "gemini-2.5-flash"
+        self._model = (
+            model
+            or getattr(_S, "GEMINI_MODEL", None)
+            or "gemini-3.1-flash-lite-preview"
+        )
         self._client = None
 
     def is_available(self) -> bool:
