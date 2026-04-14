@@ -20,8 +20,9 @@ Configuration:
 from __future__ import annotations
 
 import base64
+import json
 from abc import ABC, abstractmethod
-from typing import List, Optional
+from typing import Any, List, Optional
 
 import cv2
 import numpy as np
@@ -30,6 +31,55 @@ from ..config import get_settings
 from ..telemetry import logger
 
 _S = get_settings()
+
+# JSON schema used for Gemini `response_schema` / Anthropic tool-use, so
+# the model returns a typed deck dict directly and we skip the fragile
+# plain-text parsing step on the happy path.
+_DECK_SCHEMA: dict[str, Any] = {
+    "type": "object",
+    "properties": {
+        "main": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "qty": {"type": "integer", "minimum": 1, "maximum": 99},
+                    "name": {"type": "string", "minLength": 1, "maxLength": 200},
+                },
+                "required": ["qty", "name"],
+            },
+        },
+        "side": {
+            "type": "array",
+            "items": {
+                "type": "object",
+                "properties": {
+                    "qty": {"type": "integer", "minimum": 1, "maximum": 99},
+                    "name": {"type": "string", "minLength": 1, "maxLength": 200},
+                },
+                "required": ["qty", "name"],
+            },
+        },
+    },
+    "required": ["main", "side"],
+}
+
+_STRUCTURED_PROMPT = """You are extracting a Magic: The Gathering deck list from an image.
+
+Return a JSON object with exactly two arrays, `main` and `side`, where
+each element is `{"qty": <int>, "name": "<string>"}`.
+
+Rules:
+- Include every mainboard card and every sideboard card.
+- Combine "Quantity: 4" stacking or "x2" suffixes into the qty field.
+- MTGO exports the full 75 cards inline with no explicit sideboard
+  marker; when a deck has exactly 75 cards, place the last 15 in `side`.
+- For split / DFC / adventure cards use the full printed name with
+  `//` between faces (e.g. `"Fire // Ice"`, `"Fable of the Mirror-Breaker // Reflection of Kiki-Jiki"`).
+- Strip set codes and collector numbers — return the clean card name only.
+- If the image contains no deck list, return `{"main": [], "side": []}`.
+- Return nothing except the JSON object, no prose, no markdown fences.
+"""
 
 _DEFAULT_PROMPT = """Extract every Magic: The Gathering card visible in this image.
 
@@ -74,6 +124,65 @@ def _parse_text_response(content: str, provider: str) -> dict:
     }
 
 
+def _normalize_structured(payload: Any, provider: str) -> Optional[dict]:
+    """Coerce a model's JSON response into ``{main, side, method}``.
+
+    Accepts slightly loose shapes (JSON string, dict with main/side
+    missing, qty as string) so we can still salvage a response that
+    slightly deviates from the schema. Returns None if the payload
+    doesn't contain any usable deck structure at all.
+    """
+    if payload is None:
+        return None
+
+    if isinstance(payload, (bytes, bytearray)):
+        try:
+            payload = payload.decode("utf-8")
+        except Exception:
+            return None
+
+    if isinstance(payload, str):
+        stripped = payload.strip()
+        if stripped.startswith("```"):
+            stripped = stripped.strip("`").lstrip("json").strip()
+        try:
+            payload = json.loads(stripped)
+        except Exception:
+            return None
+
+    if not isinstance(payload, dict):
+        return None
+
+    def _coerce(section: Any) -> list[dict]:
+        if not isinstance(section, list):
+            return []
+        out: list[dict] = []
+        for item in section:
+            if not isinstance(item, dict):
+                continue
+            try:
+                qty = int(item.get("qty") or item.get("quantity") or 0)
+            except (TypeError, ValueError):
+                continue
+            name = (item.get("name") or item.get("card") or "").strip()
+            if qty <= 0 or not name:
+                continue
+            out.append({"qty": qty, "name": name})
+        return out
+
+    main = _coerce(payload.get("main") or payload.get("mainboard") or [])
+    side = _coerce(payload.get("side") or payload.get("sideboard") or [])
+
+    if not main and not side:
+        return None
+
+    return {
+        "main": main,
+        "side": side,
+        "method": f"vision_{provider}_structured",
+    }
+
+
 class VisionProvider(ABC):
     """Abstract Vision OCR provider."""
 
@@ -87,9 +196,24 @@ class VisionProvider(ABC):
     def extract_deck(self, image: np.ndarray) -> dict:
         """Run the Vision call and return an OCR-format dict."""
 
+    def extract_deck_structured(self, image: np.ndarray) -> Optional[dict]:
+        """Run the Vision call with a JSON schema constraint.
+
+        Subclasses override this with their vendor-specific
+        structured-output API (Gemini ``response_schema`` / Anthropic
+        tool-use). Return None when the model failed to produce a
+        usable ``{main, side}`` payload so the caller can fall back
+        to the plain-text ``extract_deck`` path.
+        """
+        return None
+
     @staticmethod
     def prompt() -> str:
         return _DEFAULT_PROMPT
+
+    @staticmethod
+    def structured_prompt() -> str:
+        return _STRUCTURED_PROMPT
 
 
 class GeminiVisionProvider(VisionProvider):
@@ -147,6 +271,32 @@ class GeminiVisionProvider(VisionProvider):
         )
         content = getattr(response, "text", "") or ""
         return _parse_text_response(content, provider=self.name)
+
+    def extract_deck_structured(self, image: np.ndarray) -> Optional[dict]:
+        from google.genai import types
+
+        image_bytes = _encode_jpeg(image)
+        client = self._get_client()
+        try:
+            response = client.models.generate_content(
+                model=self._model,
+                contents=[
+                    types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
+                    self.structured_prompt(),
+                ],
+                config=types.GenerateContentConfig(
+                    response_mime_type="application/json",
+                    response_schema=_DECK_SCHEMA,
+                ),
+            )
+        except Exception as exc:
+            logger.warning("Gemini structured call failed: %s", exc)
+            return None
+
+        content = getattr(response, "text", None)
+        if content is None:
+            content = getattr(response, "parsed", None)
+        return _normalize_structured(content, provider=self.name)
 
 
 class ClaudeVisionProvider(VisionProvider):
@@ -212,6 +362,53 @@ class ClaudeVisionProvider(VisionProvider):
             getattr(block, "text", "") for block in getattr(response, "content", [])
         )
         return _parse_text_response(content, provider=self.name)
+
+    def extract_deck_structured(self, image: np.ndarray) -> Optional[dict]:
+        image_bytes = _encode_jpeg(image)
+        encoded = base64.standard_b64encode(image_bytes).decode("ascii")
+        client = self._get_client()
+        try:
+            response = client.messages.create(
+                model=self._model,
+                max_tokens=2048,
+                tools=[
+                    {
+                        "name": "return_deck",
+                        "description": (
+                            "Return the extracted MTG deck list as a structured JSON "
+                            "object with `main` and `side` arrays."
+                        ),
+                        "input_schema": _DECK_SCHEMA,
+                    }
+                ],
+                tool_choice={"type": "tool", "name": "return_deck"},
+                messages=[
+                    {
+                        "role": "user",
+                        "content": [
+                            {
+                                "type": "image",
+                                "source": {
+                                    "type": "base64",
+                                    "media_type": "image/jpeg",
+                                    "data": encoded,
+                                },
+                            },
+                            {"type": "text", "text": self.structured_prompt()},
+                        ],
+                    }
+                ],
+            )
+        except Exception as exc:
+            logger.warning("Claude structured call failed: %s", exc)
+            return None
+
+        payload: Any = None
+        for block in getattr(response, "content", []) or []:
+            if getattr(block, "type", "") == "tool_use":
+                payload = getattr(block, "input", None)
+                break
+        return _normalize_structured(payload, provider=self.name)
 
 
 _REGISTRY: dict[str, type[VisionProvider]] = {
@@ -282,3 +479,35 @@ def run_vision_chain(image: np.ndarray) -> dict:
         "fallback_used": False,
         "method": "failed",
     }
+
+
+def run_vision_chain_structured(image: np.ndarray) -> Optional[dict]:
+    """Try each provider's structured-output path and return the first
+    usable ``{main, side, method}`` dict.
+
+    Used by the Vision-primary pipeline to skip EasyOCR + regex parsing
+    entirely. Returns None when every provider either failed the HTTP
+    call or produced an unparseable response, so the caller can fall
+    back to the traditional EasyOCR path.
+    """
+    chain = get_vision_chain()
+    if not chain:
+        return None
+
+    for provider in chain:
+        try:
+            logger.info("Vision structured: trying %s", provider.name)
+            result = provider.extract_deck_structured(image)
+            if result and (result.get("main") or result.get("side")):
+                logger.info(
+                    "Vision structured: %s returned %d main / %d side cards",
+                    provider.name,
+                    len(result.get("main", [])),
+                    len(result.get("side", [])),
+                )
+                return result
+            logger.info("Vision structured: %s returned empty/invalid", provider.name)
+        except Exception as exc:
+            logger.warning("Vision structured: %s failed: %s", provider.name, exc)
+
+    return None

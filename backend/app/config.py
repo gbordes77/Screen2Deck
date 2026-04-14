@@ -16,12 +16,17 @@ class Settings:
     SUPERRES_MIN_WIDTH: int = int(os.getenv("SUPERRES_MIN_WIDTH", 1200))  # Min width to trigger super-resolution
 
     # Vision providers (comma-separated chain, first available wins).
-    # Default: Gemini 2.5 Flash as primary, Claude Haiku 4.5 as fallback.
+    # Default: Gemini 3.1 Flash-Lite as primary, Claude Haiku 4.5 as fallback.
     VISION_PROVIDER: str = os.getenv("VISION_PROVIDER", "gemini,claude")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    # When true and ENABLE_VISION_FALLBACK is also true, the pipeline
+    # tries Vision LLM FIRST (with structured JSON output) and falls
+    # back to EasyOCR on failure. When false, the classic path runs:
+    # EasyOCR first, Vision fires only when confidence is too low.
+    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "false").lower() == "true"
 
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"

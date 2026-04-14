@@ -58,12 +58,17 @@ class Settings(BaseSettings):
     SCRYFALL_BULK_PATH: str = Field("./app/data/scryfall-default-cards.json", env="SCRYFALL_BULK_PATH")
     
     # Vision providers — ordered chain, first available wins.
-    # Default: Gemini 2.5 Flash primary, Claude Haiku 4.5 fallback.
+    # Default: Gemini 3.1 Flash-Lite primary, Claude Haiku 4.5 fallback.
     VISION_PROVIDER: str = Field("gemini,claude", env="VISION_PROVIDER")
     GEMINI_API_KEY: Optional[str] = Field(None, env="GEMINI_API_KEY")
     GEMINI_MODEL: str = Field("gemini-3.1-flash-lite-preview", env="GEMINI_MODEL")
     ANTHROPIC_API_KEY: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL: str = Field("claude-haiku-4-5", env="ANTHROPIC_MODEL")
+    # When true and ENABLE_VISION_FALLBACK is also true, Vision LLM
+    # with structured JSON output is the primary OCR path (EasyOCR
+    # becomes the fallback). Default false for backward compat — flip
+    # to true once you have a Gemini/Claude key in place.
+    VISION_PRIMARY: bool = Field(False, env="VISION_PRIMARY")
     
     # Monitoring
     ENABLE_METRICS: bool = Field(True, env="ENABLE_METRICS")
