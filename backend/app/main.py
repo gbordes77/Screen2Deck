@@ -403,38 +403,61 @@ def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
 
 
 async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:
-    """
-    Normalize deck with Scryfall data.
+    """Normalize a parsed deck against Scryfall.
+
+    Strategy:
+      1. Batch every unique raw name through ``/cards/collection`` in a
+         single worker thread (up to 75 identifiers per HTTP call). This
+         replaces the historical N-serial ``/cards/named?fuzzy=`` loop
+         that spent 60*120ms just sleeping on the rate limiter.
+      2. Any name Scryfall could not resolve falls back to
+         ``SCRYFALL.resolve`` (exact -> rapidfuzz offline -> online
+         fuzzy), still inside the same worker thread so the FastAPI
+         event loop keeps serving other requests.
     """
     from .models import NormalizedCard
-    
-    async def normalize_entries(entries: list[CardEntry]) -> list[NormalizedCard]:
-        normalized = []
-        
+
+    all_raw_names = sorted({e.name for e in parsed.main + parsed.side})
+    if not all_raw_names:
+        return NormalizedDeck(main=[], side=[])
+
+    def _resolve_all() -> dict[str, dict]:
+        resolved: dict[str, dict] = {}
+        batch = SCRYFALL.batch_resolve(all_raw_names)
+        for name, card in batch.items():
+            resolved[name] = {
+                "name": card.get("name", name),
+                "id": card.get("id"),
+            }
+
+        missing = [n for n in all_raw_names if n not in resolved]
+        for name in missing:
+            result = SCRYFALL.resolve(name)
+            resolved[name] = {
+                "name": result.get("name", name),
+                "id": result.get("id"),
+            }
+        return resolved
+
+    resolved_map = await asyncio.to_thread(_resolve_all)
+
+    def _to_normalized(entries: list[CardEntry]) -> list[NormalizedCard]:
+        out: list[NormalizedCard] = []
         for entry in entries:
-            # Try cache first
-            card_data = await scryfall_cache.resolve_card(entry.name)
-            
-            if card_data:
-                normalized.append(NormalizedCard(
+            data = resolved_map.get(entry.name, {"name": entry.name, "id": None})
+            out.append(
+                NormalizedCard(
                     qty=entry.qty,
-                    name=card_data.get("name", entry.name),
-                    scryfall_id=card_data.get("id")
-                ))
-            else:
-                # Fallback to fuzzy matching
-                normalized.append(NormalizedCard(
-                    qty=entry.qty,
-                    name=entry.name,
-                    scryfall_id=None
-                ))
-        
-        return normalized
-    
-    main_normalized = await normalize_entries(parsed.main)
-    side_normalized = await normalize_entries(parsed.side)
-    
-    return NormalizedDeck(main=main_normalized, side=side_normalized)
+                    name=data["name"],
+                    scryfall_id=data["id"],
+                )
+            )
+        return out
+
+    return NormalizedDeck(
+        main=_to_normalized(parsed.main),
+        side=_to_normalized(parsed.side),
+    )
 
 
 @app.get(

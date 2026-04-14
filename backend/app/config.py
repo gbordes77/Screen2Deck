@@ -27,7 +27,9 @@ class Settings:
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"
     ENABLE_SCRYFALL_ONLINE_FALLBACK: bool = os.getenv("ENABLE_SCRYFALL_ONLINE_FALLBACK","true").lower()=="true"
     SCRYFALL_API_TIMEOUT: int = int(os.getenv("SCRYFALL_API_TIMEOUT", 5))
-    SCRYFALL_API_RATE_LIMIT_MS: int = int(os.getenv("SCRYFALL_API_RATE_LIMIT_MS", 120))
+    # Scryfall guideline: 10 req/s = 100 ms between calls. 120 ms was
+    # over-cautious and cost us ~17% throughput on benchmark batches.
+    SCRYFALL_API_RATE_LIMIT_MS: int = int(os.getenv("SCRYFALL_API_RATE_LIMIT_MS", 100))
 
     # Cache files
     SCRYFALL_DB: str = os.getenv("SCRYFALL_DB","./app/data/scryfall_cache.sqlite")

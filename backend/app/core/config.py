@@ -53,7 +53,7 @@ class Settings(BaseSettings):
     ALWAYS_VERIFY_SCRYFALL: bool = Field(True, env="ALWAYS_VERIFY_SCRYFALL")
     ENABLE_SCRYFALL_ONLINE_FALLBACK: bool = Field(True, env="ENABLE_SCRYFALL_ONLINE_FALLBACK")
     SCRYFALL_API_TIMEOUT: int = Field(5, env="SCRYFALL_API_TIMEOUT")
-    SCRYFALL_API_RATE_LIMIT_MS: int = Field(120, env="SCRYFALL_API_RATE_LIMIT_MS")
+    SCRYFALL_API_RATE_LIMIT_MS: int = Field(100, env="SCRYFALL_API_RATE_LIMIT_MS")
     SCRYFALL_DB: str = Field("./app/data/scryfall_cache.sqlite", env="SCRYFALL_DB")
     SCRYFALL_BULK_PATH: str = Field("./app/data/scryfall-default-cards.json", env="SCRYFALL_BULK_PATH")
     
