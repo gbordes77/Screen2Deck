@@ -63,15 +63,12 @@ jobs:
         run: |
           echo "🎴 === MTG SPECIFIC TESTS ==="
           . .venv/bin/activate
+          pip install -r backend/requirements.txt
 
-          # Test normalize (DFC, Split, Accents)
-          pytest tests/unit/test_normalize.py -v
-
-          # Test parser (Sideboard split)
-          pytest tests/unit/test_parser.py -v
-
-          # Test MTGO lands bug
-          pytest tests/unit/test_mtgo_lands_bug.py -v
+          # Real tests that import backend.app directly — no more
+          # local stubs pretending to cover behavior they don't.
+          pytest tests/unit/test_business_rules.py -v
+          pytest tests/unit/test_exporters.py -v
 
       - name: Run Benchmark Day0
         run: |
