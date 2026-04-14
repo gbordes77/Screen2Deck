@@ -5,6 +5,85 @@
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists. The system has been validated with **independent truth metrics** establishing real performance baselines.
 
 **Current State**: ✅ PRODUCTION READY - 100% ONLINE MODE
+**Version**: v2.4.0 (2026-04-14)
+**Latest Work**: Re-architecture consolidation, Vision-primary pipeline, Scryfall batch API, security sprints
+
+## Session 2026-04-14 — Re-architecture consolidation + Vision migration
+
+Shipped on branch `refactor/consolidation-2026-04-14`, 13 commits, PR #2 on GitHub. Split into four logical waves:
+
+### Wave 1 — Consolidation & core bug fixes (commits 39bbba0, b134dd1, 9802064, 61b36a3)
+- Deleted `main_original.py`, `main_refactored.py`, `migrate_to_production.py`, `webapp/lib/enhancedOcrServiceGuaranteed.ts`, `pipeline/vision_fallback.py` (orphan OpenAI code).
+- Fixed broken imports in `core/circuit_breaker.py` that made the whole module unimportable.
+- Restored real MTGO 60+15 redistribution in `business_rules.apply_mtgo_land_fix` and wired it into `main.py`.
+- Migrated Vision fallback from OpenAI `gpt-4-vision-preview` (deprecated) to a `VisionProvider` ABC with Gemini 3.1 Flash-Lite primary + Claude Haiku 4.5 secondary. Dropped `openai==1.3.0`, added `google-genai>=0.8.0` and `anthropic>=0.39.0`.
+- Frontend: `tsconfig strict: true + noUncheckedIndexedAccess`, typed `api.ts` with discriminated `JobStatus` union + `ApiError` class, `AbortController` polling, `error.tsx` / `loading.tsx` boundaries, a11y labels + `aria-live` + focus rings, Playwright spec bug fixes.
+- Scryfall: hydrate bulk JSON on startup via `asyncio.to_thread`, memoize `all_names()` module-level behind a `threading.Lock`, schema gains an index on `lang`. Archidekt exporter now uses `csv.writer` to quote `Knight, Errant` properly.
+
+### Wave 2 — Security sprints (commits badb7da, 8c9c6ea, e4f4a5d, 61604c4)
+- **IDOR fix**: `AuthMiddleware` rewritten as optional-auth (populates `request.state.token_data`, never 401s). Both `upload_image` and `get_job_status` use `Depends(get_optional_token)`, and the ownership check in `get_job_status` is now enforced unconditionally when `job.user_id` is set.
+- **CVE fixes**: migrated `python-jose==3.3.0` to `PyJWT>=2.8.0` across `auth.py`, `auth_middleware.py`, `auth_router.py`, `api/websocket.py`. Every `jwt.decode` now requires `exp`.
+- **Secrets scrubbed**: every `postgres:postgres` / `changeme` / `your-super-secret` / `dev-secret-key-change-in-production` replaced by `${VAR:?}` substitution (compose) or `__REPLACE_ME__` markers (k8s). Added a CI guard in `security-checks.yml` that fails the build on reintroduction.
+- **Docker hardening** (bundled): removed live source mount, added `--appendonly yes` to Redis, Postgres healthcheck + gated `depends_on`, `restart: unless-stopped`.
+- **Test honesty**: deleted 7 fictional unit + e2e tests that redefined their own target functions. Added real `tests/unit/test_business_rules.py` (5 cases) and `tests/unit/test_exporters.py` (6 cases) that import from `backend.app`.
+- **CI hardening**: dropped every `|| true` in `proof-tests.yml`, fixed pytest path in `ci.yml`, dropped `|| true` on webapp type-check.
+
+### Wave 3 — Re-architecture fresh look (commit 7bcac18, fabef81)
+- Four research agents (`Explore` OCR, `Explore` Scryfall, `python-pro`, `performance-engineer`) agreed on the same direction: Vision LLM should be primary, EasyOCR the fallback.
+- Bumped default `GEMINI_MODEL` to `gemini-3.1-flash-lite-preview` (my May-2025 cutoff had me pinning the older `gemini-2.5-flash`). The Lite variant is cheaper ($0.25 / $1.50 per 1M tokens) AND faster AND scores higher on the Intelligence Index.
+- **Scryfall quick wins PR #3**:
+  - Added `User-Agent: Screen2Deck/2.3 (+https://github.com/gbordes77/Screen2Deck)` + `Accept: application/json` on the `requests.Session`.
+  - New `SCRYFALL.batch_resolve(names)` using `POST /cards/collection` (up to 75 identifiers per call), with split/DFC face reconciliation.
+  - Rewrote `main.py::normalize_deck` through `asyncio.to_thread` so the entire sqlite / requests / sleep cascade runs on a worker thread.
+  - Rate limit bumped 120 → 100 ms to match Scryfall's official 10 req/s guideline.
+
+### Wave 4 — Vision-primary pipeline + cleanup (commits c595d16, 824d4cb)
+- **PR #4 Vision structured output**:
+  - New `_DECK_SCHEMA` JSON schema shared by Gemini (`response_schema` on `GenerateContentConfig`) and Claude (forced tool-use with `tool_choice={"type":"tool","name":"return_deck"}`).
+  - New `_STRUCTURED_PROMPT` teaches the model to emit the 60+15 MTGO split natively (so `apply_mtgo_land_fix` is a cheap no-op on the fast path) and to use full `//` names for split/DFC/adventure cards.
+  - New `extract_deck_structured` methods on both providers, plus a `run_vision_chain_structured` walker.
+  - New `VISION_PRIMARY` feature flag (default `false` for backward compat). When true, `main.py::process_ocr` branches: try Vision first, build `DeckSections` directly from the typed response, skip preprocessing + EasyOCR + regex parser; fall back to the legacy EasyOCR path only when the Vision call fails.
+- **PR #5 Dead code cleanup**:
+  - Deleted `backend/app/tasks.py` (orphan Celery worker with a double-escaped regex that matched nothing, duplicated the entire inline pipeline).
+  - Deleted `backend/app/services/ocr_service.py` (orphan `OCRService` class, third source of truth for card parsing).
+  - Deleted `backend/app/matching/scryfall_cache.py` (correctness bug: `save_card` never reachable, cache perpetually cold, silent fallthrough to `scryfall_id=None`).
+  - Updated `main.py` (dropped imports and lifespan shutdown hook) and `routers/health.py` (swapped `scryfall_cache.get_stats()` for `len(SCRYFALL.all_names())`).
+  - Net: **−1173 LOC** of dead code paths.
+
+### Expected impact (per performance-engineer model)
+- p95 latency: 4.1 s → 2.7 s (−34%)
+- Accuracy: +3–5 pts qualitative (structured JSON beats regex parsing of noisy OCR)
+- Cost: ~$0.39/day at 1000 req/day with Redis cache absorbing 50% (free tier covers ~250 calls/day)
+- Pipeline LOC: −60%
+
+### Action items for the next session
+- [ ] Debug CI failures on the PR (see `gh pr checks 2`). Initial guess: the removed `|| true` in `proof-tests.yml` now surfaces real failures, and the backend lint may catch cosmetic issues in the freshly-added modules.
+- [ ] Verify `backend/scripts/download_scryfall.py` still works — this is what hydrates the bulk cache before `make up` runs cleanly.
+- [ ] Run `pip install -r backend/requirements.txt` locally and confirm `google-genai` + `anthropic` + `PyJWT` import cleanly.
+- [ ] Once CI is green, merge PR #2 via `gh pr merge 2 --squash`.
+- [ ] Fill `JWT_SECRET_KEY` and `POSTGRES_PASSWORD` in the local `.env` (the Gemini key is already pasted).
+
+### Key files touched (by layer)
+
+| Layer | Files |
+|---|---|
+| Backend pipeline | `backend/app/main.py`, `backend/app/pipeline/vision_providers.py` (new), `backend/app/pipeline/ocr.py`, `backend/app/pipeline/preprocess.py` |
+| Backend matching | `backend/app/matching/scryfall_client.py`, `backend/app/matching/fuzzy.py` |
+| Backend security | `backend/app/auth.py`, `backend/app/core/auth_middleware.py`, `backend/app/routers/auth_router.py`, `backend/app/api/websocket.py` |
+| Backend infra | `backend/app/config.py`, `backend/app/core/config.py`, `backend/app/business_rules.py`, `backend/app/core/circuit_breaker.py`, `backend/requirements.txt` |
+| Backend deleted | `backend/app/main_original.py`, `main_refactored.py`, `tasks.py`, `services/ocr_service.py`, `matching/scryfall_cache.py`, `pipeline/vision_fallback.py` |
+| Frontend | `webapp/tsconfig.json`, `webapp/lib/api.ts`, `webapp/app/page.tsx`, `webapp/app/result/[jobId]/page.tsx`, `webapp/app/layout.tsx`, `webapp/app/error.tsx`, `webapp/app/loading.tsx`, `webapp/app/result/[jobId]/error.tsx`, `webapp/app/result/[jobId]/loading.tsx` |
+| Frontend deleted | `webapp/lib/enhancedOcrServiceGuaranteed.ts` |
+| Infra / Docker | `docker-compose.yml`, `docker-compose.local.yml`, `backend/.env.docker`, `k8s/secrets.yaml`, `k8s/postgres-deployment.yaml`, `.env.example` |
+| CI | `.github/workflows/ci.yml`, `.github/workflows/proof-tests.yml`, `.github/workflows/security-checks.yml` |
+| Tests | `tests/unit/test_business_rules.py` (new), `tests/unit/test_exporters.py` (new), `tests/load/locustfile.py` |
+| Tests deleted | `tests/unit/test_parser.py`, `test_normalize.py`, `test_mtg_edge_cases.py`, `test_mtgo_lands_bug.py`, `tests/integration/test_pipeline_offline.py`, `tests/e2e/test_benchmark_day0.py`, `tests/e2e/test_exports_golden.py` |
+| Docs | `LICENSE` (new), `CONTRIBUTING.md` (new), `CLAUDE.md`, `HANDOFF.md`, `README.md` |
+
+---
+
+## Previous sessions
+
 **Version**: v2.3.0 (2025-08-19)
 **Latest Work**: Session tracking system implementation
 

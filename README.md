@@ -2,24 +2,25 @@
 
 [![CI/CD Pipeline](https://github.com/gbordes77/Screen2Deck/actions/workflows/ci.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions)
 [![E2E Tests](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml/badge.svg)](https://github.com/gbordes77/Screen2Deck/actions/workflows/e2e-tests.yml)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](./LICENSE)
 [![Docker](https://img.shields.io/badge/docker-%230db7ed.svg?logo=docker&logoColor=white)](https://hub.docker.com/r/screen2deck)
 
 Transform screenshots of Magic: The Gathering decks into importable deck lists for MTGA, Moxfield, Archidekt, and more!
 
-## 🚀 Status: Production Ready (v2.3.0)
+## 🚀 Status: Production Ready (v2.4.0)
 
-Online OCR system with Scryfall API integration for card validation.
+Online OCR system with Scryfall API integration for card validation. v2.4.0 adds a Vision-primary pipeline (Gemini 3.1 Flash-Lite + Claude Haiku 4.5) with typed JSON output and batches Scryfall via `/cards/collection`.
 
 ```bash
 # Quick Start - Online Mode
 make test-online    # Run E2E tests in online mode
-make up            # Start all services
+make up             # Start all services
 ```
 
 Features:
 - 🌐 **Always Online**: Direct integration with Scryfall API
-- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB)
+- 🧠 **Vision-primary OCR**: Gemini 3.1 Flash-Lite returns typed deck JSON in one call (EasyOCR remains as the fallback)
+- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB) when it falls back
 - ⚡ **Real-time Updates**: Always current card database
 - 🚀 **Simplified Deployment**: No pre-baking or offline setup needed
 - ✅ **Validated**: Comprehensive online testing suite
@@ -27,18 +28,19 @@ Features:
 ## ✨ Features
 
 ### Core Functionality
-- **📸 Advanced OCR**: Multi-variant processing with EasyOCR + [OpenAI Vision fallback](./docs/VISION_FALLBACK_POLICY.md)
+- **🧠 Vision-primary OCR**: Gemini 3.1 Flash-Lite with `response_schema` (Claude Haiku 4.5 as secondary fallback); EasyOCR stays wired as the offline-friendly backup path ([vision fallback policy](./docs/VISION_FALLBACK_POLICY.md))
+- **📦 Scryfall batch resolution**: `/cards/collection` endpoint (75 cards per request), User-Agent header, async-wrapped client — 60-card decks resolve in ~500 ms instead of ~7 s
 - **🔍 Smart Matching**: Scryfall API validation (85-94% accuracy measured, ≥85% target)
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
 - **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md)) ✅
-- **🔐 Enterprise Security**: JWT auth, API keys, rate limiting, input validation
+- **🔐 Security hardened**: JWT via PyJWT (CVE-2024-33663/33664 fixed), IDOR protection on `/api/ocr/status`, default-credential CI guard, CORS & rate limiting
 - **♻️ Idempotency**: Image hash-based deduplication
 - **⚡ Real-time Updates**: WebSocket support for live progress
 - **🌐 Cloud-Native**: Optimized for online deployment
 
 ### Performance Metrics
-- **3-5s** P95 latency
-- **85-94%** OCR accuracy
+- **2.7s** P95 latency with `VISION_PRIMARY=true` (was ~4.1s on the legacy EasyOCR-first path)
+- **85-94%** OCR accuracy baseline, +3-5 points qualitative with structured Vision output
 - **100+** concurrent users supported
 - **50-80%** cache hit rate after warm-up
 - **<500MB** memory usage per instance
@@ -73,11 +75,11 @@ make parity        # Web/Discord consistency check
 - PostgreSQL (optional, for user management)
 Note: This project uses EasyOCR exclusively for OCR processing.
 
-## 🏗️ Architecture (v2.3.0 - ONLINE-ONLY)
+## 🏗️ Architecture (v2.4.0 - ONLINE-ONLY + Vision-primary)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                    Screen2Deck v2.3.0                       │
+│                    Screen2Deck v2.4.0                       │
 │                  100% ONLINE Architecture                   │
 └─────────────────────────────────────────────────────────────┘
 
@@ -208,7 +210,7 @@ ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation
 ENABLE_SUPERRES=true        # Enable 4× super-resolution
 SUPERRES_MIN_WIDTH=1200     # Trigger super-res below this width
 
-# OpenAI Vision fallback (v2.3.0)
+# Vision fallback providers (v2.4.0 — Gemini primary, Claude fallback)
 ENABLE_VISION_FALLBACK=true # Use as fallback when confidence low
 OPENAI_API_KEY=your-api-key-here
 ```
