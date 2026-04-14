@@ -43,6 +43,9 @@ class Settings(BaseSettings):
     ENABLE_SUPERRES: bool = Field(False, env="ENABLE_SUPERRES")
     OCR_MIN_CONF: float = Field(0.62, env="OCR_MIN_CONF", ge=0.0, le=1.0)
     OCR_MIN_LINES: int = Field(10, env="OCR_MIN_LINES", ge=1)
+    OCR_EARLY_STOP_CONF: float = Field(0.85, env="OCR_EARLY_STOP_CONF", ge=0.0, le=1.0)
+    OCR_MIN_SPAN_CONF: float = Field(0.3, env="OCR_MIN_SPAN_CONF", ge=0.0, le=1.0)
+    SUPERRES_MIN_WIDTH: int = Field(1200, env="SUPERRES_MIN_WIDTH", ge=1)
     MAX_IMAGE_MB: int = Field(8, env="MAX_IMAGE_MB", ge=1, le=50)
     FUZZY_MATCH_TOPK: int = Field(5, env="FUZZY_MATCH_TOPK", ge=1, le=20)
     

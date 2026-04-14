@@ -116,7 +116,7 @@ def process_ocr_task(self, job_id: str, image_data: bytes) -> Dict:
         
         # Fallback to Vision if confidence is low
         def count_qty_lines(spans):
-            rx = re.compile(r"^\\s*(\\d+|[1-9]\\dx)\\s+\\S+")
+            rx = re.compile(r"^\s*(\d+|[1-9]\dx)\s+\S+")
             return sum(1 for s in spans if rx.match(s["text"].strip().lower()))
         
         if (ocr_raw["mean_conf"] < S.OCR_MIN_CONF or 

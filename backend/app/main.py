@@ -3,6 +3,7 @@ Refactored main application with proper security, job storage, and validation.
 Production-ready FastAPI application for Screen2Deck.
 """
 
+import asyncio
 import re
 import uuid
 import time
@@ -72,12 +73,33 @@ async def lifespan(app: FastAPI):
     """
     # Startup
     logger.info("Starting Screen2Deck API...")
-    
+
     # Connect to Redis for job storage
     await job_storage.connect()
-    
-    # Initialize Scryfall cache
+
+    # Hydrate the offline Scryfall index from the bulk JSON if it is on
+    # disk. This keeps cold-path fuzzy matching in-process (no network
+    # call per card) and is the main unblock for the benchmark runs that
+    # used to die on Scryfall rate limits.
     logger.info("Initializing Scryfall cache...")
+    import os as _os
+
+    bulk_path = getattr(settings, "SCRYFALL_BULK_PATH", None)
+    if bulk_path and _os.path.exists(bulk_path):
+        try:
+            await asyncio.to_thread(SCRYFALL.hydrate_from_bulk, bulk_path)
+            logger.info(
+                "Scryfall bulk hydrated (%d names cached)",
+                len(SCRYFALL.all_names()),
+            )
+        except Exception as exc:
+            logger.warning("Scryfall bulk hydrate failed: %s", exc)
+    else:
+        logger.info(
+            "Scryfall bulk file not found at %s; skipping hydration "
+            "(run scripts/download_scryfall.py to pre-cache)",
+            bulk_path,
+        )
     # scryfall_cache is already initialized
     
     # Initialize telemetry
