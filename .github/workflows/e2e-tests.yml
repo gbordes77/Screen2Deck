@@ -23,12 +23,10 @@ env:
   GOLDEN_DIR: ./golden
   DATASET_DIR: ./validation_set
   ENABLE_VISION_FALLBACK: "false"
-
-# docker-compose.yml uses `${VAR:?}` substitution for secrets so the
-# compose up command fails loudly when the variables are unset. CI
-# must supply synthetic values; production uses real ones from a
-# secret manager.
-env:
+  # docker-compose.yml uses `${VAR:?}` substitution for secrets so the
+  # compose up command fails loudly when the variables are unset. CI
+  # must supply synthetic values; production uses real ones from a
+  # secret manager.
   POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
   JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
 
