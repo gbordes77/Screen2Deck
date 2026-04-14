@@ -18,6 +18,10 @@ help: ## Show this help message
 test-online: ## Run E2E test 100% ONLINE
 	@node tests/webapp.online.js
 
+.PHONY: smoke
+smoke: ## End-to-end smoke test (boot stack, upload image, verify result, test export)
+	@bash tests/smoke_test.sh
+
 .PHONY: up-core
 up-core: ## Start Redis, Postgres, Backend (core services)
 	@docker compose --profile core up -d redis postgres backend
