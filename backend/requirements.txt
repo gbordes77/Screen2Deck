@@ -17,7 +17,10 @@ aiohttp==3.10.5
 sqlalchemy==2.0.34
 orjson==3.10.7
 # Authentication & Security
-python-jose[cryptography]==3.3.0
+# PyJWT replaces python-jose (CVE-2024-33663 algorithm confusion,
+# CVE-2024-33664 JWT decompression bomb).
+PyJWT>=2.8.0
+cryptography>=42.0.0
 passlib[bcrypt]==1.7.4
 # Async Job Processing
 celery==5.3.4

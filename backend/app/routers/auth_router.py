@@ -161,13 +161,15 @@ async def refresh_token(request: RefreshRequest):
     Refresh access token using refresh token.
     """
     try:
-        from jose import jwt, JWTError
-        
+        import jwt
+        from jwt import InvalidTokenError
+
         # Decode refresh token
         payload = jwt.decode(
             request.refresh_token,
             settings.JWT_SECRET_KEY,
-            algorithms=[settings.JWT_ALGORITHM]
+            algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp"]},
         )
         
         # Verify it's a refresh token
@@ -197,7 +199,7 @@ async def refresh_token(request: RefreshRequest):
             refresh_token=request.refresh_token  # Return same refresh token
         )
         
-    except JWTError as e:
+    except InvalidTokenError as e:
         logger.warning(f"Invalid refresh token: {e}")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,

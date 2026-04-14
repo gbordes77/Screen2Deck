@@ -128,10 +128,15 @@ async def websocket_endpoint(
     user_id = None
     if token:
         try:
-            from jose import jwt
+            import jwt
             from ..core.config import get_settings
             settings = get_settings()
-            payload = jwt.decode(token, settings.JWT_SECRET_KEY, algorithms=[settings.JWT_ALGORITHM])
+            payload = jwt.decode(
+                token,
+                settings.JWT_SECRET_KEY,
+                algorithms=[settings.JWT_ALGORITHM],
+                options={"require": ["exp"]},
+            )
             user_id = payload.get("sub")
         except Exception:
             await websocket.close(code=1008, reason="Invalid token")

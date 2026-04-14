@@ -5,7 +5,9 @@ Implements JWT-based authentication with API key support.
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from jose import JWTError, jwt
+
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -76,14 +78,19 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp"]},
+        )
         job_id: str = payload.get("job_id")
         permissions: list = payload.get("permissions", [])
-        
+
         return TokenData(job_id=job_id, permissions=permissions)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
 def verify_api_key(api_key: str) -> Optional[ApiKey]:

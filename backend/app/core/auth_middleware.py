@@ -43,7 +43,8 @@ def _parse_bearer(authorization: str) -> Optional[TokenData]:
         return None
 
     try:
-        from jose import jwt, JWTError
+        import jwt
+        from jwt import InvalidTokenError
 
         from ..core.config import settings
 
@@ -51,15 +52,22 @@ def _parse_bearer(authorization: str) -> Optional[TokenData]:
             credentials,
             settings.JWT_SECRET_KEY,
             algorithms=[settings.JWT_ALGORITHM],
+            options={"require": ["exp"]},
         )
         return TokenData(
             job_id=payload.get("job_id"),
             permissions=payload.get("permissions", []),
         )
+    except InvalidTokenError:
+        pass
     except Exception:
-        api_key_data = verify_api_key(credentials)
-        if api_key_data:
-            return TokenData(permissions=api_key_data.permissions)
+        # Unexpected error — fall through to API key path instead of
+        # crashing the middleware.
+        pass
+
+    api_key_data = verify_api_key(credentials)
+    if api_key_data:
+        return TokenData(permissions=api_key_data.permissions)
     return None
 
 # Public endpoints that skip both auth parsing and rate limiting entirely.
