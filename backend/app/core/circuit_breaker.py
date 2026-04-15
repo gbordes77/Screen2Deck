@@ -10,7 +10,7 @@ from enum import Enum
 import statistics
 
 from app.config import settings
-from app.core.telemetry import logger
+from app.telemetry import logger
 from app.core.metrics import vision_fallback_total, errors_total
 
 

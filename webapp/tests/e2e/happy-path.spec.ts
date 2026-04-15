@@ -39,7 +39,7 @@ test.describe('Happy Path - Upload to Export', () => {
     await expect(exportButton).toBeVisible();
     
     // Start download
-    const downloadPromise = page.waitForDownload();
+    const downloadPromise = page.waitForEvent('download');
     await exportButton.click();
     const download = await downloadPromise;
     
@@ -78,7 +78,7 @@ test.describe('Happy Path - Upload to Export', () => {
       const exportButton = page.getByRole('button', { name: new RegExp(`export.*${format}|${format}.*export`, 'i') });
       
       if (await exportButton.isVisible()) {
-        const downloadPromise = page.waitForDownload();
+        const downloadPromise = page.waitForEvent('download');
         await exportButton.click();
         const download = await downloadPromise;
         

@@ -1,3 +1,15 @@
+"""
+⚠️ KNOWN DUPLICATION: there is a SECOND ``Settings`` class at
+``backend/app/core/config.py`` (Pydantic BaseSettings). Half the
+codebase imports from this file (``from .config import settings``)
+and the other half imports from ``.core.config``. Any default you
+change here must ALSO be changed in ``app/core/config.py`` until the
+two classes are merged — see
+``docs/adr/0005-consolidate-settings-classes.md`` for the
+consolidation plan. Merging them requires touching ~12 files at
+once; deferred to a follow-up PR.
+"""
+
 import os
 from functools import lru_cache
 
@@ -7,16 +19,44 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
     # OCR & fallbacks
-    ENABLE_VISION_FALLBACK: bool = os.getenv("ENABLE_VISION_FALLBACK","false").lower()=="true"
+    # Default True to match ``core/config.py`` and the canonical
+    # docker-compose.yml wiring. Vision LLM is the v2.4.0 feature
+    # operators see; runtime falls through to EasyOCR when no
+    # provider is configured.
+    ENABLE_VISION_FALLBACK: bool = os.getenv("ENABLE_VISION_FALLBACK","true").lower()=="true"
     ENABLE_SUPERRES: bool = os.getenv("ENABLE_SUPERRES","false").lower()=="true"
-    OCR_MIN_CONF: float = float(os.getenv("OCR_MIN_CONF", 0.62))
+    OCR_MIN_CONF: float = float(os.getenv("OCR_MIN_CONF", 0.62))  # Fallback threshold
     OCR_MIN_LINES: int = int(os.getenv("OCR_MIN_LINES", 10))
+    OCR_EARLY_STOP_CONF: float = float(os.getenv("OCR_EARLY_STOP_CONF", 0.85))  # Early termination threshold
+    OCR_MIN_SPAN_CONF: float = float(os.getenv("OCR_MIN_SPAN_CONF", 0.3))  # Min confidence per text span
+    SUPERRES_MIN_WIDTH: int = int(os.getenv("SUPERRES_MIN_WIDTH", 1200))  # Min width to trigger super-resolution
+
+    # Vision providers (comma-separated chain, first available wins).
+    # Default chain: Gemini 2.5 Flash as primary, Claude Haiku 4.5 as fallback.
+    # NOTE on model choice: the v2.4.0 release notes referenced
+    # ``gemini-3.1-flash-lite-preview``. That preview model is currently
+    # heavily oversubscribed on Google's side (consistent 503 UNAVAILABLE)
+    # so the default was switched to ``gemini-2.5-flash`` (stable, GA).
+    # Operators can still opt back into the preview model via the
+    # ``GEMINI_MODEL`` env var.
+    VISION_PROVIDER: str = os.getenv("VISION_PROVIDER", "gemini,claude")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
+    ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
+    ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
+    # When true and ENABLE_VISION_FALLBACK is also true, the pipeline
+    # tries Vision LLM FIRST (with structured JSON output) and falls
+    # back to EasyOCR on failure. Default True matches docker-compose
+    # wiring added in commit 009e02b.
+    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "true").lower() == "true"
 
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"
     ENABLE_SCRYFALL_ONLINE_FALLBACK: bool = os.getenv("ENABLE_SCRYFALL_ONLINE_FALLBACK","true").lower()=="true"
     SCRYFALL_API_TIMEOUT: int = int(os.getenv("SCRYFALL_API_TIMEOUT", 5))
-    SCRYFALL_API_RATE_LIMIT_MS: int = int(os.getenv("SCRYFALL_API_RATE_LIMIT_MS", 120))
+    # Scryfall guideline: 10 req/s = 100 ms between calls. 120 ms was
+    # over-cautious and cost us ~17% throughput on benchmark batches.
+    SCRYFALL_API_RATE_LIMIT_MS: int = int(os.getenv("SCRYFALL_API_RATE_LIMIT_MS", 100))
 
     # Cache files
     SCRYFALL_DB: str = os.getenv("SCRYFALL_DB","./app/data/scryfall_cache.sqlite")

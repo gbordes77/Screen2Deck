@@ -92,9 +92,8 @@ async def readiness() -> Dict[str, Any]:
     
     # Check Scryfall cache
     try:
-        from ..matching.scryfall_cache import scryfall_cache
-        cache_stats = scryfall_cache.get_stats()
-        checks["scryfall"] = cache_stats["total_cards"] > 0
+        from ..matching.scryfall_client import SCRYFALL
+        checks["scryfall"] = len(SCRYFALL.all_names()) > 0
     except Exception as e:
         logger.error(f"Scryfall health check failed: {e}")
     
@@ -155,10 +154,13 @@ async def detailed_health(request: Request) -> Dict[str, Any]:
         logger.error(f"Failed to get job stats: {e}")
     
     # Scryfall cache stats
-    cache_stats = {}
+    cache_stats: Dict[str, Any] = {}
     try:
-        from ..matching.scryfall_cache import scryfall_cache
-        cache_stats = scryfall_cache.get_stats()
+        from ..matching.scryfall_client import SCRYFALL
+        cache_stats = {
+            "total_cards": len(SCRYFALL.all_names()),
+            "source": "scryfall_client",
+        }
     except Exception as e:
         logger.error(f"Failed to get cache stats: {e}")
     

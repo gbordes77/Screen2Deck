@@ -39,29 +39,15 @@ jobs:
           # Format for GitHub release body
           cat << EOF > release_notes.md
           # Screen2Deck ${{ steps.get_version.outputs.version }}
-          
-          ## 🎯 Production Ready Release
-          
-          Screen2Deck v2.0 is now **production ready** with enterprise-grade features!
-          
-          ### ✨ Key Features
-          - **96.2% OCR accuracy** (exceeds 95% target)
-          - **2.45s P95 latency** (well under 5s target)
-          - **GPU acceleration** with 3.2x speedup
-          - **Discord bot** with slash commands
-          - **JWT authentication** with refresh tokens
-          - **Real-time WebSocket** updates
-          - **Kubernetes ready** with HPA
-          - **Multi-format export** (MTGA, Moxfield, Archidekt, TappedOut)
-          
-          ### 📊 Performance Metrics
-          | Metric | Target | Actual | Status |
-          |--------|--------|--------|--------|
-          | Accuracy | ≥95% | 96.2% | ✅ |
-          | P95 Latency | <5s | 2.45s | ✅ |
-          | Cache Hit | >80% | 82% | ✅ |
-          | Concurrent Users | 100+ | 100+ | ✅ |
-          
+
+          See CHANGELOG.md for the authoritative change list and the
+          DISCLAIMER.md file for the current verified-vs-projected
+          metrics split. Performance numbers are intentionally NOT
+          embedded in this workflow — they were removed in the
+          2026-04-14 honesty pass (commit 76e0dca) and must be
+          read from the dated benchmark reports in reports/day0/
+          rather than hardcoded here.
+
           ### 🚀 What's New
           $CHANGELOG
           
@@ -439,7 +425,7 @@ jobs:
                 "fields": [
                   {
                     "name": "📊 Performance",
-                    "value": "96.2% accuracy\n2.45s P95 latency",
+                    "value": "see reports/day0/ for dated benchmarks",
                     "inline": true
                   },
                   {

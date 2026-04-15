@@ -5,6 +5,9 @@
     "dev": "next dev -p 3000",
     "build": "next build",
     "start": "next start -p 3000",
+    "lint": "echo \"lint: no ESLint config in this repo yet; type-check covers TS correctness. TODO: add eslint-config-next in a follow-up PR.\"",
+    "type-check": "tsc --noEmit",
+    "test": "echo \"No unit tests configured; use e2e\" && exit 0",
     "e2e": "playwright test",
     "e2e:all": "playwright test --project=all",
     "e2e:ui": "playwright test tests/e2e",
@@ -13,7 +16,7 @@
     "e2e:setup": "playwright test tests/e2e/setup-validation.spec.ts"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tailwindcss": "3.4.10"

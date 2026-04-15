@@ -7,6 +7,12 @@ concurrency:
   group: golden-exports-${{ github.ref }}
   cancel-in-progress: true
 
+# docker-compose.yml uses `${VAR:?}` substitution for secrets so the
+# compose up command fails loudly when they are unset.
+env:
+  POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
+  JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+
 jobs:
   verify-exports:
     runs-on: ubuntu-latest
@@ -21,10 +27,8 @@ jobs:
 
       - name: Prepare backend env
         run: |
-          cat > backend/.env.docker <<'ENV'
-          DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/screen2deck
+          cat > backend/.env.docker <<ENV
           REDIS_URL=redis://redis:6379/0
-          JWT_SECRET_KEY=ci-secret
           OCR_MIN_CONF=0.62
           ALWAYS_VERIFY_SCRYFALL=true
           FEATURE_TELEMETRY=false

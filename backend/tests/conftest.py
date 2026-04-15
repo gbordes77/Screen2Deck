@@ -3,7 +3,6 @@ Pytest configuration and fixtures for Screen2Deck tests.
 """
 
 import pytest
-import asyncio
 from typing import Generator
 from fastapi.testclient import TestClient
 from unittest.mock import Mock, patch
@@ -19,12 +18,12 @@ from app.main import app
 from app.config import Settings, get_settings
 from app.cache_manager import CacheManager
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Create event loop for async tests."""
-    loop = asyncio.get_event_loop_policy().new_event_loop()
-    yield loop
-    loop.close()
+# Note: the custom ``event_loop`` session fixture that used to live
+# here was removed as part of the pytest-asyncio 0.21 → 1.3 upgrade.
+# pytest-asyncio ≥0.24 forbids overriding ``event_loop`` and the
+# project has zero async tests, so no replacement is needed. If async
+# tests land later, prefer ``@pytest.mark.asyncio`` with the default
+# loop scope (or set ``asyncio_mode = "auto"`` in pytest config).
 
 @pytest.fixture
 def test_settings():

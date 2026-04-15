@@ -5,7 +5,9 @@ Implements JWT-based authentication with API key support.
 
 from datetime import datetime, timedelta
 from typing import Optional, Dict, Any
-from jose import JWTError, jwt
+
+import jwt
+from jwt import InvalidTokenError
 from passlib.context import CryptContext
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
@@ -76,14 +78,19 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
         detail="Could not validate credentials",
         headers={"WWW-Authenticate": "Bearer"},
     )
-    
+
     try:
-        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        payload = jwt.decode(
+            token,
+            SECRET_KEY,
+            algorithms=[ALGORITHM],
+            options={"require": ["exp"]},
+        )
         job_id: str = payload.get("job_id")
         permissions: list = payload.get("permissions", [])
-        
+
         return TokenData(job_id=job_id, permissions=permissions)
-    except JWTError:
+    except InvalidTokenError:
         raise credentials_exception
 
 def verify_api_key(api_key: str) -> Optional[ApiKey]:
@@ -116,17 +123,32 @@ async def get_current_token(credentials: HTTPAuthorizationCredentials = Depends(
     # Try JWT first
     try:
         return verify_token(credentials)
-    except:
+    except Exception:
         # Try API key
         api_key_data = verify_api_key(credentials.credentials)
         if api_key_data:
             return TokenData(permissions=api_key_data.permissions)
-        
+
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid authentication credentials",
             headers={"WWW-Authenticate": "Bearer"},
         )
+
+
+from fastapi import Request as _FastAPIRequest
+
+
+async def get_optional_token(request: _FastAPIRequest) -> Optional[TokenData]:
+    """Read `request.state.token_data` populated by ``AuthMiddleware``.
+
+    Returns None when no token is present or the token is invalid —
+    endpoints that still need caller identity must enforce it
+    themselves (for example in the ownership check of a stored job).
+    Endpoints that require a valid token must use
+    ``Depends(get_current_token)`` instead.
+    """
+    return getattr(request.state, "token_data", None)
 
 def require_permission(permission: str):
     """Decorator to require specific permission."""

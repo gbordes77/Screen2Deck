@@ -13,15 +13,15 @@ test.describe('Accessibility - WCAG Compliance', () => {
 
   test('S9.1 - Upload page accessibility', async ({ page }) => {
     // Check for accessibility violations
-    await checkA11y(page, null, {
+    await checkA11y(page, undefined, {
       detailedReport: true,
       detailedReportOptions: { html: true },
-      // Only check serious violations for gating
-      rules: {
-        'color-contrast': { enabled: true },
-        'keyboard-navigation': { enabled: true },
-        'focus-management': { enabled: true }
-      }
+      axeOptions: {
+        runOnly: {
+          type: 'rule',
+          values: ['color-contrast', 'keyboard', 'focus-order-semantics'],
+        },
+      },
     });
 
     // Test keyboard navigation
@@ -64,7 +64,7 @@ test.describe('Accessibility - WCAG Compliance', () => {
     await expect(page.getByText(/deck ready|completed|finished/i)).toBeVisible({ timeout: 30000 });
 
     // Check accessibility of results page
-    await checkA11y(page, null, {
+    await checkA11y(page, undefined, {
       detailedReport: true,
       detailedReportOptions: { html: true }
     });
@@ -178,10 +178,13 @@ test.describe('Accessibility - WCAG Compliance', () => {
 
   test('S9.5 - Color contrast and visual accessibility', async ({ page }) => {
     // This test relies on axe-core's color-contrast rule
-    await checkA11y(page, null, {
-      rules: {
-        'color-contrast': { enabled: true }
-      }
+    await checkA11y(page, undefined, {
+      axeOptions: {
+        runOnly: {
+          type: 'rule',
+          values: ['color-contrast'],
+        },
+      },
     });
 
     // Test that content is visible without CSS (progressive enhancement)

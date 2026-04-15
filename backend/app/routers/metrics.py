@@ -90,7 +90,7 @@ async def get_metrics() -> Response:
         from ..core.job_storage import job_storage
         stats = await job_storage.get_stats()
         active_jobs.set(stats.get("processing", 0))
-    except:
+    except Exception:
         pass
     
     # Generate metrics

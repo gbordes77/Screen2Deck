@@ -301,7 +301,7 @@ class Bulkhead:
                     return await func(*args, **kwargs)
                 finally:
                     self.active -= 1
-        except:
+        except Exception:
             self.queue_size -= 1
             raise
     

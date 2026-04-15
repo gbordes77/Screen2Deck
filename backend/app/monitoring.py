@@ -232,7 +232,7 @@ def update_cache_hit_rate():
         if hits + misses > 0:
             hit_rate = (hits / (hits + misses)) * 100
             cache_hit_rate.set(hit_rate)
-    except:
+    except Exception:
         pass  # Ignore errors in metric calculation
 
 # Export metrics helpers
@@ -280,7 +280,7 @@ async def health_with_metrics() -> dict:
         # Add cache hit rate if available
         try:
             health["metrics"]["cache_hit_rate"] = cache_hit_rate._value.get()
-        except:
+        except Exception:
             pass
         
         return health

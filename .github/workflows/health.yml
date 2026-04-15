@@ -1,12 +1,28 @@
 name: health
 on: [push, pull_request]
+
+# docker-compose.yml uses `${VAR:?}` substitution for secrets so the
+# compose up command fails loudly when they are unset.
+env:
+  POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
+  JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+
 jobs:
   core:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - run: echo "JWT_SECRET_KEY=ci" > backend/.env.docker
-      - run: echo -e "DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d\nREDIS_URL=redis://redis:6379/0\nOCR_MIN_CONF=0.62\nALWAYS_VERIFY_SCRYFALL=true\nFEATURE_TELEMETRY=false\nOTEL_SDK_DISABLED=true" >> backend/.env.docker
+      - run: |
+          cat > backend/.env.docker <<ENV
+          REDIS_URL=redis://redis:6379/0
+          OCR_MIN_CONF=0.62
+          ALWAYS_VERIFY_SCRYFALL=true
+          FEATURE_TELEMETRY=false
+          OTEL_SDK_DISABLED=true
+          ENV
       - run: docker compose --profile core up -d --build redis postgres backend
       - run: |
           for i in {1..40}; do curl -sf http://localhost:8080/health && exit 0; sleep 3; done; exit 1
+      - name: Dump backend logs on failure
+        if: failure()
+        run: docker compose logs backend --tail 200

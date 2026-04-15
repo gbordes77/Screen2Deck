@@ -35,91 +35,113 @@ jobs:
       
       - name: Run Anti-Tesseract Guard
         run: |
-          echo "🔒 === ANTI-TESSERACT SECURITY CHECK ===" 
-          
-          # Test 1: No tesseract in code
-          if grep -RniE "(pytesseract|tesseract)" --exclude-dir=.git --exclude-dir=node_modules --exclude="*.md" .; then
-            echo "❌ FAIL: Tesseract found in code"
+          echo "🔒 === ANTI-TESSERACT SECURITY CHECK ==="
+          set -e
+
+          # Test 1: No Tesseract import in any Python source file.
+          # Pattern matches `import pytesseract`, `from pytesseract ...`,
+          # `import tesseract`, `from tesseract ...` but ignores comments,
+          # docstrings, runtime guards that merely mention the name, and
+          # the dedicated test that verifies absence.
+          if grep -RnE "^[[:space:]]*(import|from)[[:space:]]+(py)?tesseract" \
+              --include="*.py" \
+              --exclude-dir=.git \
+              --exclude-dir=node_modules \
+              --exclude-dir=.pytest_cache \
+              --exclude-dir=__pycache__ \
+              --exclude-dir=.venv \
+              --exclude="test_no_tesseract.py" \
+              .; then
+            echo "❌ FAIL: Tesseract imported in Python source"
             exit 1
           fi
-          echo "✅ PASS: No tesseract in code"
-          
-          # Test 2: No tesseract in requirements
+          echo "✅ PASS: No tesseract imports in Python"
+
+          # Test 2: No Tesseract package listed in any requirements file.
           for req in backend/requirements*.txt; do
             if [ -f "$req" ]; then
-              if grep -iE "(tesseract|pytesseract)" "$req"; then
+              if grep -iE "^[[:space:]]*(py)?tesseract" "$req"; then
                 echo "❌ FAIL: Tesseract in $req"
                 exit 1
               fi
             fi
           done
           echo "✅ PASS: Requirements clean"
-          
-          # Test 3: Run unit test
+
+          # Test 3: No apt-get install / dnf install of tesseract packages
+          # in Dockerfiles.
+          if grep -rnE "(apt(-get)?|dnf|yum)[[:space:]]+.*tesseract" \
+              --include="Dockerfile*" \
+              .; then
+            echo "❌ FAIL: Tesseract apt/dnf install in Dockerfile"
+            exit 1
+          fi
+          echo "✅ PASS: Dockerfiles clean"
+
+          # Test 4: Run the dedicated unit test that actively checks at
+          # runtime that the `tesseract` binary and `pytesseract` module
+          # are not on the PATH / importable.
           . .venv/bin/activate
-          pytest tests/unit/test_no_tesseract.py -v || true
-      
+          pytest tests/unit/test_no_tesseract.py -v
+
       - name: Unit Tests - MTG Edge Cases
         run: |
-          echo "🎴 === MTG SPECIFIC TESTS ===" 
+          echo "🎴 === MTG SPECIFIC TESTS ==="
           . .venv/bin/activate
-          
-          # Test normalize (DFC, Split, Accents)
-          pytest tests/unit/test_normalize.py -v || true
-          
-          # Test parser (Sideboard split)
-          pytest tests/unit/test_parser.py -v || true
-          
-          # Test MTGO lands bug
-          pytest tests/unit/test_mtgo_lands_bug.py -v || true
-      
+          pip install -r backend/requirements.txt
+
+          # Real tests that import backend.app directly — no more
+          # local stubs pretending to cover behavior they don't.
+          pytest tests/unit/test_business_rules.py -v
+          pytest tests/unit/test_exporters.py -v
+
       - name: Run Benchmark Day0
         run: |
-          echo "📊 === BENCHMARK DAY0 ===" 
+          echo "📊 === BENCHMARK DAY0 ==="
           . .venv/bin/activate
-          
+
           # Create mock validation set if needed
           echo "4 Island" > validation_set/truth/test.txt
           echo "Mock image" > validation_set/images/test.jpg
-          
-          # Run benchmark
+
+          # Run benchmark (fails loudly on regression)
           python tools/bench_runner.py \
             --images validation_set/images \
             --truth validation_set/truth \
-            --out artifacts/reports/day0 || true
-          
+            --out artifacts/reports/day0
+
           # Display metrics
           if [ -f artifacts/reports/day0/metrics.json ]; then
             echo "📈 Metrics:"
             cat artifacts/reports/day0/metrics.json
           fi
-      
+
       - name: Golden Export Tests
         run: |
-          echo "🏆 === GOLDEN EXPORT TESTS ===" 
+          echo "🏆 === GOLDEN EXPORT TESTS ==="
           . .venv/bin/activate
-          
+
           # Create reference exports
           mkdir -p golden_exports/reference
           echo -e "Deck\n4 Island\n\nSideboard\n2 Negate" > golden_exports/reference/test.mtga
           echo -e "4 Island\nSB: 2 Negate" > golden_exports/reference/test.moxfield
-          
+
           # Run golden check
-          python tools/golden_check.py --out artifacts/golden || true
-          
+          python tools/golden_check.py --out artifacts/golden
+
           if [ -f artifacts/golden/golden_results.json ]; then
             echo "📋 Golden Results:"
             cat artifacts/golden/golden_results.json
           fi
-      
+
       - name: Web/Discord Parity Test
         run: |
-          echo "🔄 === WEB/DISCORD PARITY TEST ===" 
+          echo "🔄 === WEB/DISCORD PARITY TEST ==="
           . .venv/bin/activate
-          
+
           # Run parity check
-          python tools/parity_check.py --out artifacts/parity || true
-          
+          python tools/parity_check.py --out artifacts/parity
+
           if [ -f artifacts/parity/parity_results.json ]; then
             echo "⚖️ Parity Results:"
             cat artifacts/parity/parity_results.json
