@@ -1,6 +1,21 @@
 """
 Enhanced configuration with Pydantic Settings validation.
 Provides type-safe environment variable management.
+
+⚠️ KNOWN DUPLICATION: there is a SECOND ``Settings`` class at
+``backend/app/config.py`` (plain Python, no Pydantic). Half the
+codebase imports from this file (``from .core.config import settings``)
+and the other half imports from ``app/config.py``
+(``from ..config import get_settings``). Any default you change here
+must ALSO be changed in ``app/config.py`` until the two classes are
+merged — see ``docs/adr/0005-consolidate-settings-classes.md`` for
+the consolidation plan. Callers that currently touch both:
+  - app/auth.py, app/main.py, app/routers/*, app/db/database.py
+    → import from ``.core.config``
+  - app/pipeline/*, app/matching/*, app/cache_manager.py,
+    app/core/{rate_limit,retention,circuit_breaker,idempotency}.py
+    → import from ``.config``
+Merging them requires touching ~12 files at once; deferred.
 """
 
 from typing import List, Optional, Dict, Any
@@ -39,7 +54,11 @@ class Settings(BaseSettings):
     REDIS_POOL_SIZE: int = Field(10, env="REDIS_POOL_SIZE")
     
     # OCR
-    ENABLE_VISION_FALLBACK: bool = Field(False, env="ENABLE_VISION_FALLBACK")
+    # ENABLE_VISION_FALLBACK default is True to match the canonical
+    # docker-compose.yml wiring — the Vision LLM path is the feature
+    # users see, not an opt-in. Runtime still falls through to EasyOCR
+    # when no Vision provider is configured.
+    ENABLE_VISION_FALLBACK: bool = Field(True, env="ENABLE_VISION_FALLBACK")
     ENABLE_SUPERRES: bool = Field(False, env="ENABLE_SUPERRES")
     OCR_MIN_CONF: float = Field(0.62, env="OCR_MIN_CONF", ge=0.0, le=1.0)
     OCR_MIN_LINES: int = Field(10, env="OCR_MIN_LINES", ge=1)
@@ -58,17 +77,24 @@ class Settings(BaseSettings):
     SCRYFALL_BULK_PATH: str = Field("./app/data/scryfall-default-cards.json", env="SCRYFALL_BULK_PATH")
     
     # Vision providers — ordered chain, first available wins.
-    # Default: Gemini 3.1 Flash-Lite primary, Claude Haiku 4.5 fallback.
+    # Default: Gemini 2.5 Flash primary, Claude Haiku 4.5 fallback.
+    # NOTE: the v2.4.0 release notes referenced
+    # ``gemini-3.1-flash-lite-preview``. That preview model is heavily
+    # oversubscribed on Google's side (consistent 503 UNAVAILABLE) so
+    # the default is ``gemini-2.5-flash`` (stable GA). Operators can
+    # opt back into the preview via ``GEMINI_MODEL`` env var.
     VISION_PROVIDER: str = Field("gemini,claude", env="VISION_PROVIDER")
     GEMINI_API_KEY: Optional[str] = Field(None, env="GEMINI_API_KEY")
-    GEMINI_MODEL: str = Field("gemini-3.1-flash-lite-preview", env="GEMINI_MODEL")
+    GEMINI_MODEL: str = Field("gemini-2.5-flash", env="GEMINI_MODEL")
     ANTHROPIC_API_KEY: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL: str = Field("claude-haiku-4-5", env="ANTHROPIC_MODEL")
     # When true and ENABLE_VISION_FALLBACK is also true, Vision LLM
     # with structured JSON output is the primary OCR path (EasyOCR
-    # becomes the fallback). Default false for backward compat — flip
-    # to true once you have a Gemini/Claude key in place.
-    VISION_PRIMARY: bool = Field(False, env="VISION_PRIMARY")
+    # becomes the fallback). Default True matches the canonical
+    # docker-compose.yml wiring added in commit 009e02b — the
+    # v2.4.0 feature is ON out of the box, and operators without a
+    # Gemini key fall back to EasyOCR transparently.
+    VISION_PRIMARY: bool = Field(True, env="VISION_PRIMARY")
     
     # Monitoring
     ENABLE_METRICS: bool = Field(True, env="ENABLE_METRICS")

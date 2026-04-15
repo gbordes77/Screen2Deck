@@ -1,3 +1,15 @@
+"""
+⚠️ KNOWN DUPLICATION: there is a SECOND ``Settings`` class at
+``backend/app/core/config.py`` (Pydantic BaseSettings). Half the
+codebase imports from this file (``from .config import settings``)
+and the other half imports from ``.core.config``. Any default you
+change here must ALSO be changed in ``app/core/config.py`` until the
+two classes are merged — see
+``docs/adr/0005-consolidate-settings-classes.md`` for the
+consolidation plan. Merging them requires touching ~12 files at
+once; deferred to a follow-up PR.
+"""
+
 import os
 from functools import lru_cache
 
@@ -7,7 +19,11 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
     # OCR & fallbacks
-    ENABLE_VISION_FALLBACK: bool = os.getenv("ENABLE_VISION_FALLBACK","false").lower()=="true"
+    # Default True to match ``core/config.py`` and the canonical
+    # docker-compose.yml wiring. Vision LLM is the v2.4.0 feature
+    # operators see; runtime falls through to EasyOCR when no
+    # provider is configured.
+    ENABLE_VISION_FALLBACK: bool = os.getenv("ENABLE_VISION_FALLBACK","true").lower()=="true"
     ENABLE_SUPERRES: bool = os.getenv("ENABLE_SUPERRES","false").lower()=="true"
     OCR_MIN_CONF: float = float(os.getenv("OCR_MIN_CONF", 0.62))  # Fallback threshold
     OCR_MIN_LINES: int = int(os.getenv("OCR_MIN_LINES", 10))
@@ -30,9 +46,9 @@ class Settings:
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
     # When true and ENABLE_VISION_FALLBACK is also true, the pipeline
     # tries Vision LLM FIRST (with structured JSON output) and falls
-    # back to EasyOCR on failure. When false, the classic path runs:
-    # EasyOCR first, Vision fires only when confidence is too low.
-    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "false").lower() == "true"
+    # back to EasyOCR on failure. Default True matches docker-compose
+    # wiring added in commit 009e02b.
+    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "true").lower() == "true"
 
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = os.getenv("ALWAYS_VERIFY_SCRYFALL","true").lower()=="true"

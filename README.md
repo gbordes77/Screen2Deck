@@ -87,7 +87,8 @@ Note: This project uses EasyOCR exclusively for OCR processing.
 │   Frontend   │────▶│   Backend    │────▶│  External APIs   │
 │  (Next.js)   │     │  (FastAPI)   │     │                  │
 │  Port: 3000  │     │  Port: 8080  │     │ • Scryfall API   │
-└──────────────┘     └──────────────┘     │ • OpenAI Vision  │
+└──────────────┘     └──────────────┘     │ • Gemini 2.5     │
+                            │              │ • Claude Haiku   │
                             │              └──────────────────┘
                             │                       │
                             ▼                       │

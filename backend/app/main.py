@@ -134,7 +134,7 @@ async def lifespan(app: FastAPI):
 # Create FastAPI app with lifespan manager
 app = FastAPI(
     title="Screen2Deck API",
-    version="2.0.0",
+    version="2.4.0",
     description="Production-ready MTG card list OCR and export API",
     default_response_class=ORJSONResponse,
     lifespan=lifespan
@@ -556,7 +556,7 @@ async def root():
     """Root endpoint with API info."""
     return {
         "name": "Screen2Deck API",
-        "version": "2.0.0",
+        "version": "2.4.0",
         "status": "healthy",
         "docs": "/docs",
         "metrics": "/metrics"
