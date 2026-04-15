@@ -96,7 +96,12 @@ jobs:
           REDIS_URL: redis://localhost:6379/0
           JWT_SECRET_KEY: test-secret-key-for-ci-testing-only
         run: |
-          pytest tests/ backend/tests/ -v \
+          # tests/unit/ is the only live Python test tree after the
+          # v2.4.0 test-honesty pass. backend/tests/ contains a legacy
+          # conftest.py with no test files and an outdated fixture set
+          # pointing at the pre-consolidation config module, so we
+          # exclude it here until it's either rewritten or deleted.
+          pytest tests/unit -v \
             --cov=backend/app --cov-report=xml --cov-report=html
 
       - name: Upload coverage to Codecov

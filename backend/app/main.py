@@ -65,7 +65,7 @@ from .pipeline.vision_providers import run_vision_chain_structured
 from .matching.fuzzy import score_candidates
 from .matching.scryfall_client import SCRYFALL
 from .business_rules import apply_mtgo_land_fix, validate_and_fill
-from .routers import health, metrics, auth_router, export_router
+from .routers import health, auth_router, export_router
 
 # Initialize feature flags
 FLAGS = FeatureFlags.get_all_flags()
@@ -246,7 +246,9 @@ async def upload_image(
         
         # Create new job
         job_id = str(uuid.uuid4())
-        user_id = token_data.job_id if token_data else None
+        # Attach caller identity when available so ownership can be enforced
+        # on /api/ocr/status/{job_id}. Anonymous uploads stay anonymous.
+        user_id = token_data.user_id if token_data else None
         
         await job_storage.create_job(
             job_id=job_id,

@@ -160,7 +160,11 @@ jobs:
               --exclude-dir=.git \
               --exclude-dir=node_modules \
               --exclude-dir=.next \
+              --exclude-dir=.venv \
+              --exclude-dir=venv \
+              --exclude-dir=.venv-upgrade \
               --exclude='*.md' \
+              --exclude='*.html' \
               --exclude='security-checks.yml' \
               --exclude='SESSION_NOTES.md' \
               . || true)

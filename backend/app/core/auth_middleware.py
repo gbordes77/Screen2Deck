@@ -56,6 +56,7 @@ def _parse_bearer(authorization: str) -> Optional[TokenData]:
         )
         return TokenData(
             job_id=payload.get("job_id"),
+            user_id=payload.get("user_id"),
             permissions=payload.get("permissions", []),
         )
     except InvalidTokenError:
@@ -208,13 +209,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
         response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        # CSP: keep 'unsafe-inline' / 'unsafe-eval' only in non-prod because
+        # Next.js dev mode emits inline scripts. In production these are
+        # security regressions we don't want to ship.
+        from ..core.config import settings as _settings
+        _script_src = "'self'"
+        if getattr(_settings, "APP_ENV", "dev") != "production":
+            _script_src = "'self' 'unsafe-inline' 'unsafe-eval'"
         response.headers["Content-Security-Policy"] = (
             "default-src 'self'; "
-            "script-src 'self' 'unsafe-inline' 'unsafe-eval'; "
+            f"script-src {_script_src}; "
             "style-src 'self' 'unsafe-inline'; "
             "img-src 'self' data: https:; "
             "font-src 'self' data:; "
-            "connect-src 'self' https://api.scryfall.com"
+            "connect-src 'self' https://api.scryfall.com; "
+            "frame-ancestors 'none'; "
+            "base-uri 'self'; "
+            "form-action 'self'"
         )
         
         return response

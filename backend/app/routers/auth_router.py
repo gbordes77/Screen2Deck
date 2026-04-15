@@ -10,7 +10,9 @@ from pydantic import BaseModel, EmailStr
 
 from ..core.config import settings
 from ..auth import (
+    TokenData,
     create_access_token, create_api_key, hash_api_key,
+    get_current_token,
     pwd_context, Token, ApiKey
 )
 from ..telemetry import logger
@@ -210,19 +212,29 @@ async def refresh_token(request: RefreshRequest):
     "/api-key",
     response_model=ApiKey,
     summary="Generate API key",
-    description="Generate a new API key for programmatic access"
+    description="Generate a new API key for programmatic access (authenticated)"
 )
-async def generate_api_key(request: ApiKeyRequest):
+async def generate_api_key(
+    request: ApiKeyRequest,
+    token_data: TokenData = Depends(get_current_token),
+):
+    """Generate a new API key.
+
+    Requires an authenticated caller — previously this endpoint was
+    world-writable because neither the router nor the middleware
+    enforced auth, so anyone on the internet could mint a working key.
     """
-    Generate a new API key.
-    """
-    # Create API key
     api_key = create_api_key(request.name)
-    
+
     # In production, save to database with hashed key
     key_hash = hash_api_key(api_key.key)
-    logger.info(f"Generated API key: {request.name} (hash: {key_hash[:8]}...)")
-    
+    logger.info(
+        "Generated API key '%s' for user %s (hash: %s...)",
+        request.name,
+        token_data.user_id or "unknown",
+        key_hash[:8],
+    )
+
     # Return key (only shown once)
     return api_key
 
@@ -230,15 +242,20 @@ async def generate_api_key(request: ApiKeyRequest):
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Logout",
-    description="Logout and invalidate token"
+    summary="Logout (stateless no-op)",
+    description=(
+        "Tokens are stateless and short-lived (default 30 min). There is "
+        "no server-side revocation today — the client should delete the "
+        "token locally and let it expire. A Redis-backed blocklist can "
+        "be wired in later if the threat model demands it."
+    ),
 )
-async def logout():
+async def logout(token_data: TokenData = Depends(get_current_token)):
+    """Stateless logout.
+
+    Requires an authenticated caller (so unauthenticated probing
+    cannot enumerate this endpoint) but performs no server-side
+    revocation. Returns 204 on success.
     """
-    Logout user.
-    
-    In production, this would invalidate the token by adding it to a blacklist.
-    """
-    # In production, add token to blacklist
-    logger.info("User logged out")
+    logger.info("User logged out (user_id=%s)", token_data.user_id or "unknown")
     return None

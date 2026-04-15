@@ -47,7 +47,7 @@ async def health_check() -> Dict[str, Any]:
     return {
         "status": "healthy",
         "timestamp": time.time(),
-        "version": "2.0.0"
+        "version": "2.4.0",
     }
 
 
@@ -137,7 +137,7 @@ async def detailed_health(request: Request) -> Dict[str, Any]:
         # Return minimal info in production
         return {
             "status": "healthy",
-            "version": "2.0.0",
+            "version": "2.4.0",
             "environment": settings.APP_ENV,
             "message": "Detailed metrics restricted"
         }
@@ -166,7 +166,7 @@ async def detailed_health(request: Request) -> Dict[str, Any]:
     
     return {
         "status": "healthy",
-        "version": "2.0.0",
+        "version": "2.4.0",
         "environment": settings.APP_ENV,
         "system": {
             "cpu_percent": cpu_percent,

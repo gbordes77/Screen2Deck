@@ -9,7 +9,7 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 
 ## 🚀 Status: Production Ready (v2.4.0)
 
-Online OCR system with Scryfall API integration for card validation. v2.4.0 adds a Vision-primary pipeline (Gemini 3.1 Flash-Lite + Claude Haiku 4.5) with typed JSON output and batches Scryfall via `/cards/collection`.
+Online OCR system with Scryfall API integration for card validation. v2.4.0 adds a Vision-primary pipeline (Gemini 2.5 Flash + Claude Haiku 4.5 fallback) with typed JSON output and batches Scryfall via `/cards/collection`.
 
 ```bash
 # Quick Start - Online Mode
@@ -19,8 +19,8 @@ make up             # Start all services
 
 Features:
 - 🌐 **Always Online**: Direct integration with Scryfall API
-- 🧠 **Vision-primary OCR**: Gemini 3.1 Flash-Lite returns typed deck JSON in one call (EasyOCR remains as the fallback)
-- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB) when it falls back
+- 🧠 **Vision-primary OCR**: Gemini 2.5 Flash returns typed deck JSON in one call (EasyOCR remains as the fallback when Vision fails)
+- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB) on the fallback path
 - ⚡ **Real-time Updates**: Always current card database
 - 🚀 **Simplified Deployment**: No pre-baking or offline setup needed
 - ✅ **Validated**: Comprehensive online testing suite
@@ -28,20 +28,20 @@ Features:
 ## ✨ Features
 
 ### Core Functionality
-- **🧠 Vision-primary OCR**: Gemini 3.1 Flash-Lite with `response_schema` (Claude Haiku 4.5 as secondary fallback); EasyOCR stays wired as the offline-friendly backup path ([vision fallback policy](./docs/VISION_FALLBACK_POLICY.md))
+- **🧠 Vision-primary OCR**: Gemini 2.5 Flash with `response_json_schema` (Claude Haiku 4.5 as secondary fallback); EasyOCR stays wired as the backup when the Vision chain fails ([vision fallback policy](./docs/VISION_FALLBACK_POLICY.md))
 - **📦 Scryfall batch resolution**: `/cards/collection` endpoint (75 cards per request), User-Agent header, async-wrapped client — 60-card decks resolve in ~500 ms instead of ~7 s
-- **🔍 Smart Matching**: Scryfall API validation (85-94% accuracy measured, ≥85% target)
+- **🔍 Smart Matching**: Scryfall API validation (85-94% accuracy baseline, ≥85% target)
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
-- **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md)) ✅
-- **🔐 Security hardened**: JWT via PyJWT (CVE-2024-33663/33664 fixed), IDOR protection on `/api/ocr/status`, default-credential CI guard, CORS & rate limiting
+- **🤖 Discord Bot**: Full parity with web interface ([slash commands](./discord/README.md))
+- **🔐 Security hardened**: JWT via PyJWT (CVE-2024-33663/33664 fixed), IDOR ownership check on `/api/ocr/status`, authenticated `/api/auth/api-key`, default-credential CI guard, CORS & rate limiting
 - **♻️ Idempotency**: Image hash-based deduplication
 - **⚡ Real-time Updates**: WebSocket support for live progress
 - **🌐 Cloud-Native**: Optimized for online deployment
 
-### Performance Metrics
-- **2.7s** P95 latency with `VISION_PRIMARY=true` (was ~4.1s on the legacy EasyOCR-first path)
-- **85-94%** OCR accuracy baseline, +3-5 points qualitative with structured Vision output
-- **100+** concurrent users supported
+### Performance targets (see [DISCLAIMER.md](./DISCLAIMER.md) for measured vs projected)
+- **~2.7s** projected P95 latency with `VISION_PRIMARY=true` (was ~4.1s on the legacy EasyOCR-first path — numbers are modelled pending a `make bench-day0` run on v2.4.0)
+- **85-94%** OCR accuracy baseline, +3-5 points qualitative with structured Vision output (projected)
+- **100+** concurrent users supported in load tests
 - **50-80%** cache hit rate after warm-up
 - **<500MB** memory usage per instance
 - **20 req/min/IP** rate limiting on exports
@@ -104,12 +104,12 @@ Note: This project uses EasyOCR exclusively for OCR processing.
                      └──────────────┘     │    ~64MB         │
                                           └──────────────────┘
 
-Data Flow:
+Data Flow (VISION_PRIMARY=true, default):
 1. Upload Image → Frontend → Backend
-2. Backend → Download EasyOCR models (first run)
-3. Process with EasyOCR → Extract card names
-4. Validate via Scryfall API (online)
-5. Cache results in Redis
+2. Backend → Vision chain (Gemini 2.5 Flash → Claude Haiku 4.5) returns typed deck JSON
+3. On Vision failure → EasyOCR fallback path (downloads models on first run, ~64MB)
+4. Batch-validate cards via Scryfall `/cards/collection`
+5. Cache results in Redis (image-hash idempotency)
 6. Return formatted deck list
 ```
 
@@ -201,19 +201,26 @@ REDIS_URL=redis://localhost:6379/0
 CORS_ORIGINS=["http://localhost:3000","https://yourdomain.com"]
 
 # OCR Configuration
-OCR_MIN_CONF=0.62           # Trigger Vision API below this
-OCR_EARLY_STOP_CONF=0.85    # Stop processing if confidence high
-OCR_MIN_SPAN_CONF=0.3       # Min confidence per text span
-OCR_MIN_LINES=10            # Minimum lines for valid OCR
-ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation
+# The tuning knobs below only affect the EasyOCR legacy path; they are
+# ignored once VISION_PRIMARY=true (the v2.4.0 default).
+OCR_MIN_CONF=0.62           # Trigger Vision fallback below this (legacy path)
+OCR_EARLY_STOP_CONF=0.85    # EasyOCR early-stop threshold (legacy path)
+OCR_MIN_SPAN_CONF=0.3       # Min confidence per text span (legacy path)
+OCR_MIN_LINES=10            # Minimum lines for valid OCR (legacy path)
+ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation (both paths)
 
-# Super-Resolution (v2.3.0)
+# Super-Resolution (legacy path only)
 ENABLE_SUPERRES=true        # Enable 4× super-resolution
 SUPERRES_MIN_WIDTH=1200     # Trigger super-res below this width
 
-# Vision fallback providers (v2.4.0 — Gemini primary, Claude fallback)
-ENABLE_VISION_FALLBACK=true # Use as fallback when confidence low
-OPENAI_API_KEY=your-api-key-here
+# Vision providers (v2.4.0 — Gemini primary, Claude fallback)
+ENABLE_VISION_FALLBACK=true        # Enable the Vision LLM chain
+VISION_PRIMARY=true                # Route Vision FIRST (Vision-primary fast path)
+VISION_PROVIDER=gemini,claude      # Chain order — first available wins
+GEMINI_API_KEY=                    # Free tier: https://aistudio.google.com/app/apikey
+GEMINI_MODEL=gemini-2.5-flash
+ANTHROPIC_API_KEY=                 # Optional — API access is separate from Claude Pro/Max
+ANTHROPIC_MODEL=claude-haiku-4-5
 ```
 
 ### Generate Secure JWT Secret
@@ -322,9 +329,10 @@ make golden        # Validate export formats ([Golden Exports](./golden_exports/
 make parity        # Web/Discord parity check ([CI Job](.github/workflows/parity-test.yml))
 
 # Individual test categories
-pytest tests/unit -v           # Unit tests (MTG edge cases)
-pytest tests/integration -v    # Integration tests
-pytest tests/e2e -v            # End-to-end tests
+pytest tests/unit -v           # Unit tests (business rules + exporters + anti-Tesseract)
+# Note: tests/integration/ and tests/e2e/ were removed in v2.4.0 (PR #2,
+# test honesty pass). Playwright e2e lives in tests/web-e2e/ and runs via
+# `make e2e-ui` or `make e2e-smoke`.
 
 # Run specific proof tools
 python3 tools/bench_runner.py --images validation_set/images --truth validation_set/truth --out artifacts/reports/day0
@@ -340,35 +348,13 @@ python3 tools/parity_check.py --out artifacts/parity
 - **Parity Tests**: Web/Discord export consistency
 - **Security Tests**: Anti-Tesseract guard (EasyOCR only)
 
-## 🏗️ Architecture
-
-```
-┌─────────────┐     ┌─────────────┐     ┌─────────────┐
-│   Next.js   │────▶│   FastAPI   │────▶│    Redis    │
-│   Frontend  │     │   Backend   │     │  Job Queue  │
-└─────────────┘     └─────────────┘     └─────────────┘
-                            │
-                    ┌───────┴────────┐
-                    ▼                ▼
-            ┌─────────────┐  ┌─────────────┐
-            │   EasyOCR   │  │  Scryfall   │
-            │   Pipeline  │  │    Cache    │
-            └─────────────┘  └─────────────┘
-                    │                │
-                    ▼                ▼
-            ┌─────────────┐  ┌─────────────┐
-            │   Vision    │  │   SQLite    │
-            │   Fallback  │  │   Storage   │
-            └─────────────┘  └─────────────┘
-```
-
 ### Key Components
-- **FastAPI Backend**: High-performance async API
-- **Redis**: Job storage and caching
-- **PostgreSQL**: User management (optional)
-- **EasyOCR**: Primary OCR engine
-- **Vision API**: Fallback OCR (optional)
-- **Scryfall Cache**: Offline-first card database
+- **FastAPI Backend**: High-performance async API (canonical entry: `backend/app/main.py`)
+- **Redis**: Job storage, idempotency cache, rate-limit state
+- **PostgreSQL**: User management (optional, required for authenticated job ownership)
+- **Vision providers**: Gemini 2.5 Flash primary, Claude Haiku 4.5 fallback (both return typed JSON)
+- **EasyOCR**: Fallback OCR path when the Vision call fails
+- **Scryfall**: Online card validation via `/cards/collection` batch endpoint, bulk-hydrated on startup
 
 ## 🔒 Security & Privacy
 
@@ -398,14 +384,14 @@ python3 tools/parity_check.py --out artifacts/parity
 
 ## 📈 Performance Metrics
 
-Current production metrics:
-- **OCR Accuracy**: 96.2% on validation set ✅
-- **Processing Time**: 2.45s p95 latency ✅
-- **Throughput**: 100+ requests/minute ✅
-- **Cache Hit Rate**: 82% for common cards ✅
-- **Memory Usage**: <500MB per instance ✅
-- **CPU Usage**: <30% average load ✅
-- **Startup Time**: <10s cold start ✅
+See [DISCLAIMER.md](./DISCLAIMER.md) for the distinction between verified and projected metrics. Re-run `make smoke && make bench-day0` to produce fresh artifacts under `artifacts/reports/day0/`.
+
+- **OCR Accuracy**: 85-94% fuzzy-match baseline on the validation set
+- **Processing Time**: ~2.7s p95 projected (Vision-primary), ~4.1s legacy EasyOCR path
+- **Throughput**: 100+ concurrent users supported in load tests
+- **Cache Hit Rate**: 50-80% after warm-up (image-hash idempotency + Scryfall bulk)
+- **Memory Usage**: <500MB per instance (steady state)
+- **Startup Time**: bulk Scryfall hydrate adds ~2-5s to cold start
 
 ## 🆕 Advanced Features
 
@@ -425,15 +411,13 @@ Current production metrics:
   - 4K+: 72% confidence, 15 lines minimum
 - **Cost Protection**: Circuit opens after 5 failures, recovers after 60s
 
-### GDPR Compliance (Full DSGVO/RGPD)
-- **Data Deletion API**: `DELETE /api/gdpr/data/{jobId|hash}`
-- **Automatic Retention**: Celery tasks with configurable TTLs
+### GDPR Compliance
+- **Data Retention** (Redis TTLs driven by `DATA_RETENTION_*_HOURS/DAYS` env vars):
   - Images: 24 hours (configurable via `DATA_RETENTION_IMAGES_HOURS`)
   - Jobs: 1 hour (configurable via `DATA_RETENTION_JOBS_HOURS`)
   - Hashes: 7 days (configurable via `DATA_RETENTION_HASHES_DAYS`)
-- **Dry-Run Mode**: Test retention policies without deletion
-- **Export API**: `GET /api/gdpr/data/export/{user_id}` for data portability
-- **Metrics**: Prometheus tracking of all GDPR operations
+- **GDPR router**: `backend/app/routers/gdpr.py` is present but not yet wired into `main.py`. Treat GDPR endpoints as a documented extension point, not a supported surface, until [PLAN.md](./PLAN.md) lists the wiring as done.
+- **Metrics**: Prometheus counters for GDPR operations live in `backend/app/core/metrics.py` (`gdpr_requests_total`, `retention_deleted_total`)
 
 ### Enterprise Security Hardening
 - **Health Endpoint Protection**: IP allowlist for `/health/detailed`

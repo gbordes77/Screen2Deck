@@ -44,6 +44,7 @@ class ApiKey(BaseModel):
 
 class TokenData(BaseModel):
     job_id: Optional[str] = None
+    user_id: Optional[str] = None
     permissions: list[str] = []
     exp: Optional[datetime] = None
 
@@ -86,10 +87,11 @@ def verify_token(credentials: HTTPAuthorizationCredentials = Depends(security)) 
             algorithms=[ALGORITHM],
             options={"require": ["exp"]},
         )
-        job_id: str = payload.get("job_id")
-        permissions: list = payload.get("permissions", [])
-
-        return TokenData(job_id=job_id, permissions=permissions)
+        return TokenData(
+            job_id=payload.get("job_id"),
+            user_id=payload.get("user_id"),
+            permissions=payload.get("permissions", []),
+        )
     except InvalidTokenError:
         raise credentials_exception
 
