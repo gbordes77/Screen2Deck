@@ -284,9 +284,15 @@ class GeminiVisionProvider(VisionProvider):
                     types.Part.from_bytes(data=image_bytes, mime_type="image/jpeg"),
                     self.structured_prompt(),
                 ],
+                # google-genai 1.x exposes two sibling fields on GenerateContentConfig:
+                # - response_schema:       Gemini's native Schema type
+                # - response_json_schema:  raw OpenAPI 3.1 / JSON Schema dict
+                # _DECK_SCHEMA is a plain JSON Schema dict, so response_json_schema
+                # is the canonical target. response_schema would require wrapping
+                # in types.Schema(...) and expresses a subset of JSON Schema.
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json",
-                    response_schema=_DECK_SCHEMA,
+                    response_json_schema=_DECK_SCHEMA,
                 ),
             )
         except Exception as exc:

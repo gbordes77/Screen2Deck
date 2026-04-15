@@ -16,10 +16,16 @@ class Settings:
     SUPERRES_MIN_WIDTH: int = int(os.getenv("SUPERRES_MIN_WIDTH", 1200))  # Min width to trigger super-resolution
 
     # Vision providers (comma-separated chain, first available wins).
-    # Default: Gemini 3.1 Flash-Lite as primary, Claude Haiku 4.5 as fallback.
+    # Default chain: Gemini 2.5 Flash as primary, Claude Haiku 4.5 as fallback.
+    # NOTE on model choice: the v2.4.0 release notes referenced
+    # ``gemini-3.1-flash-lite-preview``. That preview model is currently
+    # heavily oversubscribed on Google's side (consistent 503 UNAVAILABLE)
+    # so the default was switched to ``gemini-2.5-flash`` (stable, GA).
+    # Operators can still opt back into the preview model via the
+    # ``GEMINI_MODEL`` env var.
     VISION_PROVIDER: str = os.getenv("VISION_PROVIDER", "gemini,claude")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
-    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-3.1-flash-lite-preview")
+    GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
     # When true and ENABLE_VISION_FALLBACK is also true, the pipeline
