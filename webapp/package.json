@@ -16,7 +16,7 @@
     "e2e:setup": "playwright test tests/e2e/setup-validation.spec.ts"
   },
   "dependencies": {
-    "next": "14.2.5",
+    "next": "14.2.35",
     "react": "18.3.1",
     "react-dom": "18.3.1",
     "tailwindcss": "3.4.10"

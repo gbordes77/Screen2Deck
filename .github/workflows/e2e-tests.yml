@@ -41,7 +41,7 @@ jobs:
         
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         ports:
           - 6379:6379
         options: >-
@@ -156,7 +156,7 @@ jobs:
     
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         ports:
           - 6379:6379
           
@@ -212,7 +212,7 @@ jobs:
     
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         ports:
           - 6379:6379
           
@@ -264,7 +264,7 @@ jobs:
     
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         ports:
           - 6379:6379
           
@@ -319,7 +319,7 @@ jobs:
     
     services:
       redis:
-        image: redis:7-alpine
+        image: redis:7.4-alpine
         ports:
           - 6379:6379
           
