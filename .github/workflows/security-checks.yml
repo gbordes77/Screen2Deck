@@ -35,14 +35,28 @@ jobs:
       - name: Check for Tesseract imports in code
         run: |
           echo "🔍 Checking for Tesseract imports in Python code..."
-          
-          # Check for any Python files importing tesseract
-          if grep -r "import.*tesseract\|from.*tesseract\|pytesseract\|tesserocr" --include="*.py" .; then
+
+          # Match actual import statements only (`import (py)tesseract`,
+          # `from (py)tesseract import ...`). The looser pattern used to
+          # match the anti-Tesseract guard test file itself, which
+          # legitimately contains the string "pytesseract" as a literal
+          # argument to pkgutil.find_loader.
+          matches=$(grep -RE '^[[:space:]]*(import|from)[[:space:]]+(py)?tesseract\b' \
+            --include='*.py' \
+            --exclude-dir=.git \
+            --exclude-dir=node_modules \
+            --exclude-dir=.venv \
+            --exclude-dir=venv \
+            --exclude='test_no_tesseract.py' \
+            . || true)
+
+          if [ -n "$matches" ]; then
             echo "❌ FAILED: Tesseract imports found in code"
+            echo "$matches"
             echo "Screen2Deck uses EasyOCR exclusively. Remove all Tesseract references."
             exit 1
           fi
-          
+
           echo "✅ No Tesseract imports in code"
 
       - name: Check Dockerfiles for Tesseract
@@ -134,6 +148,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v3
+        with:
+          # Gitleaks walks git history via `git log <parent>..<commit>`
+          # and fails on a shallow clone when the commit under scan is
+          # the first on its branch (see gitleaks/gitleaks-action#208).
+          # Full history keeps the scan deterministic on PR branches.
+          fetch-depth: 0
 
       - name: Run Gitleaks
         uses: gitleaks/gitleaks-action@v2
@@ -197,7 +217,7 @@ jobs:
           format: spdx-json
           
       - name: Upload SBOM
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: sbom
           path: sbom.spdx.json
