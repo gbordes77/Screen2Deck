@@ -76,3 +76,24 @@ backend/app/data/scryfall-default-cards.json
 backend/app/data/scryfall_cache.sqlite
 backend/app/data/*.sqlite-shm
 backend/app/data/*.sqlite-wal
+
+# Per-session agent workspace. sub-agents/context/context-manager.json
+# is produced by the context-manager sub-agent as a cartography of the
+# project, consumed by downstream audit agents. It's session-scoped
+# (stale the moment anyone commits) and ~50KB per scan, so it's
+# explicitly NOT committed. Agents should regenerate via their own
+# bootstrap scan at the start of each session. See ADR on agent
+# workflow (TODO) for details.
+sub-agents/
+
+# One-off debug scripts + exploration artifacts that accumulated at
+# the repo root. Keep untracked rather than delete — user may reuse.
+/OCR_ANALYSIS_REPORT.html
+/UAT_GUIDE.html
+/PROJECT_INDEX.md
+/PR_BODY.md
+/analyze_validation_images.py
+/test_improved_ocr.py
+/test_ocr_raw.py
+/test_parse_logic.py
+/server_working_backup/

@@ -246,4 +246,58 @@ screencast-open: ## Open screencast in browser
 .PHONY: demo-seed
 # ONLINE-ONLY - No offline database
 
+# --- release + version discipline ------------------------------------------
+
+.PHONY: bump-version
+bump-version: ## Bump version in main.py, README, CLAUDE.md, CHANGELOG, package.json (usage: make bump-version VERSION=2.5.0)
+	@if [ -z "$(VERSION)" ]; then \
+		echo "Usage: make bump-version VERSION=x.y.z"; \
+		exit 1; \
+	fi
+	@echo "Bumping version to $(VERSION)..."
+	@python3 -c "\
+import re, sys; \
+v = '$(VERSION)'; \
+assert re.match(r'^\d+\.\d+\.\d+$$', v), f'Invalid semver: {v}'; \
+files = { \
+    'backend/app/main.py': [r'version=\"\d+\.\d+\.\d+\"'], \
+    'README.md': [r'Screen2Deck v\d+\.\d+\.\d+'], \
+    'CLAUDE.md': [r'Production Ready \(v\d+\.\d+\.\d+\)'], \
+    'webapp/package.json': [r'\"version\": \"\d+\.\d+\.\d+\"'], \
+}; \
+repl = { \
+    'backend/app/main.py': [f'version=\"{v}\"'], \
+    'README.md': [f'Screen2Deck v{v}'], \
+    'CLAUDE.md': [f'Production Ready (v{v})'], \
+    'webapp/package.json': [f'\"version\": \"{v}\"'], \
+}; \
+touched = 0; \
+for f, pats in files.items(): \
+    try: \
+        with open(f) as fh: content = fh.read() \
+    except FileNotFoundError: continue; \
+    for pat, rep in zip(pats, repl[f]): \
+        new = re.sub(pat, rep, content); \
+        if new != content: content = new; touched += 1 \
+    with open(f, 'w') as fh: fh.write(content) \
+print(f'Touched {touched} version string(s). Run: git diff')"
+	@echo "Done. Don't forget to update CHANGELOG.md by hand and commit."
+
+.PHONY: doc-lint
+doc-lint: ## Flag doc-to-code drift (stale v2.x mentions, version stamp mismatches)
+	@echo "Scanning for version drift..."
+	@STAMP=$$(grep -oE 'version="[0-9]+\.[0-9]+\.[0-9]+"' backend/app/main.py | head -1 | sed 's/version="//; s/"//') ; \
+	echo "backend/app/main.py version=$$STAMP" ; \
+	DOC_STAMP=$$(grep -oE 'v[0-9]+\.[0-9]+\.[0-9]+' README.md | head -1) ; \
+	echo "README.md top stamp=$$DOC_STAMP" ; \
+	if [ "v$$STAMP" != "$$DOC_STAMP" ] ; then \
+	  echo "  ⚠ DRIFT: README.md and main.py disagree" ; \
+	fi
+	@echo ""
+	@echo "Root .md files older than 30 days:"
+	@find . -maxdepth 1 -name "*.md" -mtime +30 -print 2>/dev/null | sed 's/^/  /' || echo "  (none)"
+	@echo ""
+	@echo "Stale 'OpenAI' mentions (should be Gemini/Claude post-ADR 0001):"
+	@grep -l -r --include="*.md" --exclude-dir=docs/adr 'OpenAI' . 2>/dev/null | sed 's/^/  /' || echo "  (none)"
+
 .DEFAULT_GOAL := help
