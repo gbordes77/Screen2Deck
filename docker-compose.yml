@@ -64,9 +64,27 @@ services:
         required: false
     environment:
       DATABASE_URL: postgresql+psycopg://postgres:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/screen2deck
+      # REDIS_URL is hard-coded to the in-network redis hostname so that
+      # a stray ``REDIS_URL=redis://localhost:6379`` in the operator's
+      # host .env (used for running the backend directly on the host
+      # without Docker) doesn't get substituted in here and break the
+      # container at boot — the bridge-network alias is the only valid
+      # value from inside the backend container.
+      REDIS_URL: redis://redis:6379/0
       JWT_SECRET_KEY: ${JWT_SECRET_KEY:?JWT_SECRET_KEY is required — generate with `openssl rand -base64 32`}
+      # Vision LLM pipeline. Defaults are wired so a fresh
+      # `docker compose up` actually exercises the v2.4.0 Vision-primary
+      # fast path instead of silently falling into the legacy EasyOCR-only
+      # path. Operators without GEMINI_API_KEY get a transparent fallback
+      # to EasyOCR because the chain returns None when no provider is
+      # configured (see backend/app/main.py and pipeline/vision_providers.py).
+      ENABLE_VISION_FALLBACK: ${ENABLE_VISION_FALLBACK:-true}
+      VISION_PRIMARY: ${VISION_PRIMARY:-true}
+      VISION_PROVIDER: ${VISION_PROVIDER:-gemini,claude}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
+      GEMINI_MODEL: ${GEMINI_MODEL:-gemini-2.5-flash}
       ANTHROPIC_API_KEY: ${ANTHROPIC_API_KEY:-}
+      ANTHROPIC_MODEL: ${ANTHROPIC_MODEL:-claude-haiku-4-5}
     ports: ["8080:8080"]
     volumes:
       - ./backend/app/data:/app/app/data
