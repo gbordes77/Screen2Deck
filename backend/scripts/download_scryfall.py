@@ -10,6 +10,7 @@ The `--minimal` flag is accepted for CI compatibility but is currently
 a no-op — Scryfall no longer exposes a "minimal" bulk variant, we just
 download `default_cards` (≈150 MB compressed).
 """
+
 import argparse
 import json
 import os
@@ -48,7 +49,9 @@ def main() -> int:
     r = requests.get(BULK_URL, headers=headers, timeout=S.SCRYFALL_TIMEOUT)
     r.raise_for_status()
     default = next(x for x in r.json()["data"] if x["type"] == "default_cards")
-    print(f"Downloading {default['download_uri']} ({default.get('size', '?')} bytes)...")
+    print(
+        f"Downloading {default['download_uri']} ({default.get('size', '?')} bytes)..."
+    )
 
     dl = requests.get(default["download_uri"], headers=headers, timeout=120)
     dl.raise_for_status()

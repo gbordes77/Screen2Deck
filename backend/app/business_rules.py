@@ -6,6 +6,7 @@ marker, so after OCR we need to redistribute the last 15 cards into the
 sideboard when the mainboard overflows MIN_MAIN (60) and the sideboard
 is empty.
 """
+
 from typing import List
 
 from .telemetry import logger

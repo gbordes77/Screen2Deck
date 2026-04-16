@@ -17,9 +17,8 @@ _QTY_LINE_RX = re.compile(r"^\s*(\d+|[1-9]\dx)\s+\S+")
 
 def count_qty_lines(spans) -> int:
     """Count OCR spans that look like "<qty> <card name>" lines."""
-    return sum(
-        1 for s in spans if _QTY_LINE_RX.match(s["text"].strip().lower())
-    )
+    return sum(1 for s in spans if _QTY_LINE_RX.match(s["text"].strip().lower()))
+
 
 # ONLINE-ONLY mode - No offline support
 
@@ -31,6 +30,7 @@ import cv2
 
 # Initialize determinism SECOND
 from .core.determinism import init_determinism
+
 init_determinism()
 
 # Core imports
@@ -41,8 +41,12 @@ from .core.validation import image_validator, text_validator, request_validator
 from .core.feature_flags import FeatureFlags
 from .core.idempotency import generate_job_key, verify_idempotency
 from .core.metrics_minimal import (
-    create_metrics_app, track_ocr_request, record_cache_access, 
-    record_export, OCR_REQUESTS, JOBS_INFLIGHT
+    create_metrics_app,
+    track_ocr_request,
+    record_cache_access,
+    record_export,
+    OCR_REQUESTS,
+    JOBS_INFLIGHT,
 )
 from .auth import (
     TokenData,
@@ -55,8 +59,14 @@ from .auth import (
 # Application imports
 from .telemetry import logger, new_trace, telemetry
 from .models import (
-    UploadResponse, StatusResponse, DeckResult, RawOCR, OCRSpan, 
-    DeckSections, CardEntry, NormalizedDeck
+    UploadResponse,
+    StatusResponse,
+    DeckResult,
+    RawOCR,
+    OCRSpan,
+    DeckSections,
+    CardEntry,
+    NormalizedDeck,
 )
 from .error_taxonomy import *
 from .pipeline.preprocess import preprocess_variants
@@ -106,28 +116,28 @@ async def lifespan(app: FastAPI):
             "(run scripts/download_scryfall.py to pre-cache)",
             bulk_path,
         )
-    
+
     # Initialize telemetry
     if settings.ENABLE_TRACING:
         telemetry.init_tracing()
-    
+
     logger.info("Screen2Deck API started successfully")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Screen2Deck API...")
-    
+
     # Disconnect from Redis
     await job_storage.disconnect()
-    
+
     # Close Scryfall cache
     # (scryfall_client uses requests.Session; no explicit close needed.)
-    
+
     # Shutdown telemetry
     if settings.ENABLE_TRACING:
         telemetry.shutdown()
-    
+
     logger.info("Screen2Deck API shutdown complete")
 
 
@@ -137,7 +147,7 @@ app = FastAPI(
     version="2.4.0",
     description="Production-ready MTG card list OCR and export API",
     default_response_class=ORJSONResponse,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add security middleware
@@ -145,9 +155,16 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     AuthMiddleware,
     skip_auth_paths={
-        "/", "/health", "/metrics", "/docs", "/openapi.json", "/redoc",
-        "/api/auth/login", "/api/auth/register", "/api/auth/refresh"
-    }
+        "/",
+        "/health",
+        "/metrics",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+    },
 )
 
 # Configure CORS with settings
@@ -156,7 +173,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=settings.CORS_ALLOW_METHODS,
-    allow_headers=settings.CORS_ALLOW_HEADERS
+    allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
 # Mount Prometheus metrics endpoint
@@ -173,7 +190,7 @@ app.include_router(export_router, prefix="/api/export", tags=["export"])
     "/api/ocr/upload",
     response_model=UploadResponse,
     summary="Upload image for OCR processing",
-    description="Upload a deck list image for OCR processing with idempotency support"
+    description="Upload a deck list image for OCR processing with idempotency support",
 )
 async def upload_image(
     request: Request,
@@ -182,7 +199,7 @@ async def upload_image(
 ):
     """
     Upload an image for OCR processing.
-    
+
     Features:
     - Image validation and sanitization
     - Idempotency via image hash
@@ -193,19 +210,18 @@ async def upload_image(
     # Track OCR request
     with track_ocr_request():
         trace_id = new_trace()
-        
+
         # Validate request headers
         if not request_validator.validate_headers(dict(request.headers)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": VALIDATION_ERROR, "message": "Invalid request headers"}
+                detail={"code": VALIDATION_ERROR, "message": "Invalid request headers"},
             )
-        
+
         # Validate and sanitize image
         try:
             sanitized_content, metadata = await image_validator.validate_upload(
-                file, 
-                calculate_hash=True
+                file, calculate_hash=True
             )
         except HTTPException:
             raise
@@ -213,9 +229,9 @@ async def upload_image(
             logger.error(f"Image validation failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": BAD_IMAGE, "message": "Image validation failed"}
+                detail={"code": BAD_IMAGE, "message": "Image validation failed"},
             )
-        
+
         # Generate idempotency key
         pipeline_config = {
             "ocr_engine": FLAGS["ocr_engine"],
@@ -227,13 +243,13 @@ async def upload_image(
                 "denoise": True,
                 "binarize": True,
                 "sharpen": True,
-                "superres": False
-            }
+                "superres": False,
+            },
         }
-        
+
         job_key = generate_job_key(sanitized_content, **pipeline_config)
         image_hash = metadata.get("hash", job_key[:64])  # Use full job_key as hash
-        
+
         # Check cache (idempotency) using image_hash
         if settings.USE_REDIS:
             existing_job_id = await job_storage.find_by_image_hash(image_hash)
@@ -241,52 +257,43 @@ async def upload_image(
                 logger.info(f"Cache hit for image hash {image_hash[:16]}")
                 record_cache_access("ocr", hit=True)
                 return UploadResponse(jobId=existing_job_id, cached=True)
-        
+
         record_cache_access("ocr", hit=False)
-        
+
         # Create new job
         job_id = str(uuid.uuid4())
         # Attach caller identity when available so ownership can be enforced
         # on /api/ocr/status/{job_id}. Anonymous uploads stay anonymous.
         user_id = token_data.user_id if token_data else None
-        
+
         await job_storage.create_job(
-            job_id=job_id,
-            image_hash=image_hash,
-            user_id=user_id,
-            metadata=metadata
+            job_id=job_id, image_hash=image_hash, user_id=user_id, metadata=metadata
         )
-        
+
         # Process image asynchronously
         # In production, this would be sent to a Celery queue
         # For now, we process inline but update job status
         await job_storage.update_job(job_id, state="processing", progress=10)
-        
+
         try:
             # Process OCR
             result = await process_ocr(sanitized_content, job_id, trace_id)
-            
+
             # Save result
             await job_storage.update_job(
-                job_id,
-                state="completed",
-                progress=100,
-                result=result.model_dump()
+                job_id, state="completed", progress=100, result=result.model_dump()
             )
-            
+
         except Exception as e:
             logger.error(f"OCR processing failed for job {job_id}: {e}")
             await job_storage.update_job(
-                job_id,
-                state="failed",
-                progress=100,
-                error=str(e)
+                job_id, state="failed", progress=100, error=str(e)
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"code": OCR_ERROR, "message": "OCR processing failed"}
+                detail={"code": OCR_ERROR, "message": "OCR processing failed"},
             )
-        
+
         return UploadResponse(jobId=job_id, cached=False)
 
 
@@ -326,7 +333,9 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         ocr_method = "easyocr"
 
         # -------- Vision-primary fast path --------
-        if settings.ENABLE_VISION_FALLBACK and getattr(settings, "VISION_PRIMARY", False):
+        if settings.ENABLE_VISION_FALLBACK and getattr(
+            settings, "VISION_PRIMARY", False
+        ):
             structured = await asyncio.to_thread(run_vision_chain_structured, img)
             if structured and (structured.get("main") or structured.get("side")):
                 main_entries = [
@@ -410,20 +419,20 @@ def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
     main_entries: list[CardEntry] = []
     side_entries: list[CardEntry] = []
     section = "main"
-    
+
     for span in spans:
         line = span.text.strip()
-        
+
         # Check for sideboard marker
         if line.lower().startswith("sideboard") or line.lower().startswith("sb"):
             section = "side"
             continue
-        
+
         # Parse quantity and name
         qty = 0
         name = ""
         parts = line.split(" ", 1)
-        
+
         if len(parts) == 2:
             if parts[0].isdigit():
                 qty = int(parts[0])
@@ -431,17 +440,17 @@ def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
             elif parts[0].lower().endswith("x") and parts[0][:-1].isdigit():
                 qty = int(parts[0][:-1])
                 name = parts[1]
-        
+
         if qty > 0 and name:
             # Sanitize card name
             name = text_validator.sanitize_card_name(name)
             entry = CardEntry(qty=qty, name=name)
-            
+
             if section == "main":
                 main_entries.append(entry)
             else:
                 side_entries.append(entry)
-    
+
     return DeckSections(main=main_entries, side=side_entries)
 
 
@@ -507,7 +516,7 @@ async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:
     "/api/ocr/status/{job_id}",
     response_model=StatusResponse,
     summary="Get job status",
-    description="Get the status and results of an OCR job"
+    description="Get the status and results of an OCR job",
 )
 async def get_job_status(
     job_id: str,
@@ -520,7 +529,7 @@ async def get_job_status(
     if not text_validator.validate_job_id(job_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": VALIDATION_ERROR, "message": "Invalid job ID format"}
+            detail={"code": VALIDATION_ERROR, "message": "Invalid job ID format"},
         )
 
     # Get job from storage
@@ -529,7 +538,7 @@ async def get_job_status(
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "JOB_NOT_FOUND", "message": "Job not found"}
+            detail={"code": "JOB_NOT_FOUND", "message": "Job not found"},
         )
 
     # IDOR protection: a job owned by an authenticated user is only
@@ -549,7 +558,7 @@ async def get_job_status(
         state=job["state"],
         progress=job.get("progress", 0),
         result=job.get("result"),
-        error=job.get("error")
+        error=job.get("error"),
     )
 
 
@@ -561,16 +570,17 @@ async def root():
         "version": "2.4.0",
         "status": "healthy",
         "docs": "/docs",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=settings.PORT,
         reload=settings.is_development,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )

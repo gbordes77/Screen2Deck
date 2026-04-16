@@ -71,6 +71,7 @@ def _parse_bearer(authorization: str) -> Optional[TokenData]:
         return TokenData(permissions=api_key_data.permissions)
     return None
 
+
 # Public endpoints that skip both auth parsing and rate limiting entirely.
 PUBLIC_ENDPOINTS = {
     "/",
@@ -139,51 +140,50 @@ class AuthMiddleware(BaseHTTPMiddleware):
         """Check if request is within rate limits."""
         client_ip = self._get_client_ip(request)
         now = time.time()
-        
+
         # Initialize rate limit tracking for this IP
         if client_ip not in self.rate_limits:
             self.rate_limits[client_ip] = {
                 "requests": [],
                 "burst_count": 0,
-                "last_reset": now
+                "last_reset": now,
             }
-        
+
         client_limits = self.rate_limits[client_ip]
-        
+
         # Clean old requests (older than 1 minute)
         cutoff = now - 60
         client_limits["requests"] = [
-            req_time for req_time in client_limits["requests"] 
-            if req_time > cutoff
+            req_time for req_time in client_limits["requests"] if req_time > cutoff
         ]
-        
+
         # Check requests per minute
         if len(client_limits["requests"]) >= limits["requests_per_minute"]:
             return False
-        
+
         # Check burst limit (requests in last 5 seconds)
         recent_cutoff = now - 5
         recent_requests = sum(
-            1 for req_time in client_limits["requests"] 
-            if req_time > recent_cutoff
+            1 for req_time in client_limits["requests"] if req_time > recent_cutoff
         )
         if recent_requests >= limits["burst"]:
             return False
-        
+
         # Add current request
         client_limits["requests"].append(now)
-        
+
         # Clean up old IPs to prevent memory leak
         if len(self.rate_limits) > 1000:
             # Remove IPs that haven't made requests in 5 minutes
             old_cutoff = now - 300
             self.rate_limits = {
-                ip: data for ip, data in self.rate_limits.items()
+                ip: data
+                for ip, data in self.rate_limits.items()
                 if data["requests"] and data["requests"][-1] > old_cutoff
             }
-        
+
         return True
-    
+
     def _get_client_ip(self, request: Request) -> str:
         """Extract real client IP considering proxy headers."""
         # Check proxy headers first
@@ -191,7 +191,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
             return request.headers["X-Forwarded-For"].split(",")[0].strip()
         elif "X-Real-IP" in request.headers:
             return request.headers["X-Real-IP"]
-        
+
         # Fallback to direct client
         return request.client.host if request.client else "unknown"
 
@@ -200,19 +200,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
     """
     Add security headers to all responses.
     """
-    
+
     async def dispatch(self, request: Request, call_next: Callable) -> Response:
         response = await call_next(request)
-        
+
         # Add security headers
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
         response.headers["X-XSS-Protection"] = "1; mode=block"
-        response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
+        response.headers["Strict-Transport-Security"] = (
+            "max-age=31536000; includeSubDomains"
+        )
         # CSP: keep 'unsafe-inline' / 'unsafe-eval' only in non-prod because
         # Next.js dev mode emits inline scripts. In production these are
         # security regressions we don't want to ship.
         from ..core.config import settings as _settings
+
         _script_src = "'self'"
         if getattr(_settings, "APP_ENV", "dev") != "production":
             _script_src = "'self' 'unsafe-inline' 'unsafe-eval'"
@@ -227,5 +230,5 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             "base-uri 'self'; "
             "form-action 'self'"
         )
-        
+
         return response

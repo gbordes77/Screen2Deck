@@ -317,9 +317,7 @@ class ClaudeVisionProvider(VisionProvider):
     ) -> None:
         self._api_key = api_key or getattr(_S, "ANTHROPIC_API_KEY", None)
         self._model = (
-            model
-            or getattr(_S, "ANTHROPIC_MODEL", None)
-            or "claude-haiku-4-5"
+            model or getattr(_S, "ANTHROPIC_MODEL", None) or "claude-haiku-4-5"
         )
         self._client = None
 
