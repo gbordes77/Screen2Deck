@@ -107,14 +107,14 @@ jobs:
           # (tools/benchmark_independent.py against a live stack) is
           # tracked in PLAN.md as a follow-up.
           cat > validation_set/truth/test.txt <<'TRUTH'
-          4 Bloodtithe Harvester
-          3 Fable of the Mirror-Breaker
-          20 Mountain
-          3 Swamp
-          Sideboard
-          2 Duress
-          3 Go Blank
-          TRUTH
+4 Bloodtithe Harvester
+3 Fable of the Mirror-Breaker
+20 Mountain
+3 Swamp
+Sideboard
+2 Duress
+3 Go Blank
+TRUTH
           echo "Mock image" > validation_set/images/test.jpg
 
           python tools/bench_runner.py \

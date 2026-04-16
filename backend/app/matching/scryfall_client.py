@@ -33,9 +33,16 @@ SCRYFALL_USER_AGENT = "Screen2Deck/2.3 (+https://github.com/gbordes77/Screen2Dec
 class Scryfall:
     def __init__(self, db_path=S.SCRYFALL_DB):
         self.db_path = db_path
-        os.makedirs(os.path.dirname(db_path), exist_ok=True)
-        with sqlite3.connect(self.db_path) as con:
-            con.executescript(SCHEMA)
+        try:
+            os.makedirs(os.path.dirname(db_path) or ".", exist_ok=True)
+            with sqlite3.connect(self.db_path) as con:
+                con.executescript(SCHEMA)
+        except (sqlite3.OperationalError, OSError):
+            import tempfile
+
+            self.db_path = os.path.join(tempfile.gettempdir(), "scryfall_cache.sqlite")
+            with sqlite3.connect(self.db_path) as con:
+                con.executescript(SCHEMA)
         self._last_call = 0.0
         self._session = requests.Session()
         self._session.headers.update(

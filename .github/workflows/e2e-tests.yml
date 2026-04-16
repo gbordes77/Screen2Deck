@@ -29,6 +29,7 @@ env:
   # secret manager.
   POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
   JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+  SKIP_SCRYFALL_DOWNLOAD: "true"
 
 jobs:
   e2e-tests:
@@ -151,44 +152,28 @@ jobs:
   e2e-mobile:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports:
-          - 6379:6379
-          
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
-          POSTGRES_DB: screen2deck
+    # No `services:` block — docker compose brings its own Redis + Postgres
+    # containers. Adding workflow-level services on the same ports causes
+    # "port is already allocated" errors.
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
+
       - name: Install Playwright
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          
-      - name: Setup backend and webapp
+
+      - name: Start services
         run: |
-          # Start services in background
           docker compose --profile core up -d
-          
-          # Wait for services
-          sleep 30
-          curl -f http://localhost:8080/health || exit 1
+          for i in {1..60}; do curl -sf http://localhost:8080/health && break; sleep 3; done
           curl -f http://localhost:3000 || exit 1
           
       - name: Run mobile tests
@@ -207,41 +192,26 @@ jobs:
   accessibility-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports:
-          - 6379:6379
-          
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
-          POSTGRES_DB: screen2deck
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
+
       - name: Install dependencies
         run: |
           npm ci
           npm install -D axe-playwright
           npx playwright install --with-deps chromium
-          
+
       - name: Start services
         run: |
           docker compose --profile core up -d
-          sleep 30
+          for i in {1..60}; do curl -sf http://localhost:8080/health && break; sleep 3; done
           
       - name: Run accessibility tests
         run: |
@@ -259,40 +229,25 @@ jobs:
   performance-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 20
-    
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports:
-          - 6379:6379
-          
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
-          POSTGRES_DB: screen2deck
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
+
       - name: Install Playwright
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          
+
       - name: Start services
         run: |
           docker compose --profile core up -d
-          sleep 30
+          for i in {1..60}; do curl -sf http://localhost:8080/health && break; sleep 3; done
           
       - name: Run performance tests
         run: |
@@ -314,40 +269,25 @@ jobs:
   security-tests:
     runs-on: ubuntu-latest
     timeout-minutes: 15
-    
-    services:
-      redis:
-        image: redis:7.4-alpine
-        ports:
-          - 6379:6379
-          
-      postgres:
-        image: postgres:16-alpine
-        ports:
-          - 5432:5432
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
-          POSTGRES_DB: screen2deck
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
-        
+
       - name: Setup Node.js
         uses: actions/setup-node@v4
         with:
           node-version: '18'
-          
+
       - name: Install Playwright
         run: |
           npm ci
           npx playwright install --with-deps chromium
-          
+
       - name: Start services
         run: |
           docker compose --profile core up -d
-          sleep 30
+          for i in {1..60}; do curl -sf http://localhost:8080/health && break; sleep 3; done
           
       - name: Run security tests
         run: |
