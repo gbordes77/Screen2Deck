@@ -5,7 +5,7 @@ Stub telemetry module when OpenTelemetry is disabled.
 import logging
 import uuid
 from contextlib import contextmanager
-from typing import Optional, Dict, Any
+from typing import Dict, Any
 
 # Setup basic logger
 logger = logging.getLogger(__name__)

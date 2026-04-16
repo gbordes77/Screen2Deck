@@ -12,6 +12,11 @@ concurrency:
 env:
   POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
   JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+  # Skip the 510 MB Scryfall bulk download in CI: the backend container
+  # has no writable path for it under /app/app/data/ with the current
+  # ownership layout, and the export contract tests do not need it
+  # (they hit Scryfall's online API when a card is missing).
+  SKIP_SCRYFALL_DOWNLOAD: "true"
 
 jobs:
   verify-exports:
@@ -33,6 +38,7 @@ jobs:
           ALWAYS_VERIFY_SCRYFALL=true
           FEATURE_TELEMETRY=false
           OTEL_SDK_DISABLED=true
+          SKIP_SCRYFALL_DOWNLOAD=true
           ENV
 
       - name: Start core services

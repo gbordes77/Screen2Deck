@@ -3,7 +3,7 @@ Health check endpoints for Screen2Deck API.
 """
 
 from fastapi import APIRouter, status, Request, HTTPException, Depends
-from typing import Dict, Any, Optional
+from typing import Dict, Any
 import psutil
 import time
 

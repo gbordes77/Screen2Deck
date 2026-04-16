@@ -1,4 +1,5 @@
-import cv2, numpy as np
+import cv2
+import numpy as np
 from ..config import get_settings
 
 S = get_settings()

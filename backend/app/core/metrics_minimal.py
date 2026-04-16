@@ -12,7 +12,6 @@ from prometheus_client import (
 )
 import time
 from contextlib import contextmanager
-from typing import Optional
 
 # Create a custom registry (avoid default registry conflicts)
 registry = CollectorRegistry()

@@ -4,7 +4,7 @@ Implements JWT-based authentication with API key support.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional, Dict, Any
+from typing import Optional
 
 import jwt
 from jwt import InvalidTokenError

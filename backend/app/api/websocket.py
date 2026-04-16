@@ -3,13 +3,11 @@ WebSocket support for real-time job updates.
 Provides live streaming of OCR processing status.
 """
 
-from fastapi import WebSocket, WebSocketDisconnect, Depends, Query
+from fastapi import WebSocket, WebSocketDisconnect, Query
 from typing import Dict, Set, Optional
 import asyncio
-import json
 from datetime import datetime
 
-from ..auth import verify_token, TokenData
 from ..cache_manager import cache_manager
 from ..telemetry import logger
 

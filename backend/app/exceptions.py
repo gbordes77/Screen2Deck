@@ -4,7 +4,7 @@ Provides comprehensive error handling with proper error codes and messages.
 """
 
 from typing import Optional, Dict, Any
-from fastapi import HTTPException, Request, status
+from fastapi import HTTPException, Request
 from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
 from starlette.exceptions import HTTPException as StarletteHTTPException

@@ -18,7 +18,7 @@ the consolidation plan. Callers that currently touch both:
 Merging them requires touching ~12 files at once; deferred.
 """
 
-from typing import List, Optional, Dict, Any
+from typing import List, Optional
 from pydantic import Field, field_validator
 from pydantic_settings import BaseSettings
 from pydantic.networks import PostgresDsn, RedisDsn
@@ -145,9 +145,12 @@ class Settings(BaseSettings):
         return v
 
     @field_validator("DATABASE_URL", mode="before")
-    def build_database_url(cls, v, values):
+    def build_database_url(cls, v, info):
         """Build database URL if not provided."""
-        if not v and values.get("APP_ENV") != "development":
+        # pydantic v2: previously-validated fields live on info.data
+        # (the v1 ``values`` dict was renamed). APP_ENV is declared
+        # above DATABASE_URL, so it's guaranteed to be present here.
+        if not v and info.data.get("APP_ENV") != "development":
             raise ValueError("DATABASE_URL is required in production")
         return v
 

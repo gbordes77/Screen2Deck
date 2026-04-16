@@ -4,13 +4,12 @@ GDPR compliance endpoints for data access and deletion.
 
 from fastapi import APIRouter, HTTPException, status, Depends
 from typing import Dict, Any
-import hashlib
 
 from ..core.config import settings
 from ..core.job_storage import job_storage
 from ..core.metrics import gdpr_requests_total, retention_deleted_total
 from ..telemetry import logger
-from ..auth import get_current_user, require_permission
+from ..auth import get_current_user
 
 router = APIRouter(prefix="/api/gdpr", tags=["GDPR"])
 

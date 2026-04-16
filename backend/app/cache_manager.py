@@ -4,10 +4,8 @@ Handles caching of OCR results, Scryfall data, and job status.
 """
 
 import redis
-import json
 import hashlib
 from typing import Optional, Any, Dict
-from datetime import timedelta
 from functools import wraps
 import pickle
 from .config import get_settings

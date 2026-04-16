@@ -122,9 +122,7 @@ class FeatureFlags:
 
         # Warn if Scryfall online in benchmark
         if flags["scryfall_online"] and flags["deterministic"]:
-            logger.warning(
-                "⚠️ Scryfall online + deterministic mode - results may vary!"
-            )
+            logger.warning("⚠️ Scryfall online + deterministic mode - results may vary!")
 
         logger.info(f"Feature flags: {flags}")
 

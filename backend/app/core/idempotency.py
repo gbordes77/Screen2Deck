@@ -7,7 +7,7 @@ import hashlib
 import json
 import time
 from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from datetime import datetime
 
 import redis
 from redis.exceptions import LockError

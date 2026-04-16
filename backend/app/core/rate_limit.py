@@ -6,9 +6,8 @@ Uses in-memory storage with Redis fallback.
 import time
 from typing import Dict, Optional
 from collections import defaultdict, deque
-from datetime import datetime, timedelta
 import redis
-from fastapi import Request, HTTPException
+from fastapi import Request
 from fastapi.responses import JSONResponse
 
 from ..config import settings

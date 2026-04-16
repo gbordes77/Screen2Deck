@@ -6,10 +6,7 @@ All retention periods are configurable via environment variables.
 """
 
 from datetime import datetime, timedelta
-from typing import Optional
-import os
 import time
-import logging
 from pathlib import Path
 
 from celery import Celery
@@ -20,8 +17,6 @@ from app.config import settings
 from app.core.telemetry import logger
 from app.core.metrics import (
     retention_deleted_total,
-    retention_cleanup_duration,
-    gdpr_requests_total,
 )
 
 # Initialize Celery

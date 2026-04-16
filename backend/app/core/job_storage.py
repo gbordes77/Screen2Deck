@@ -4,11 +4,9 @@ Provides persistent job tracking with TTL and atomic operations.
 """
 
 import json
-import hashlib
 from typing import Optional, Dict, Any, List
 from datetime import datetime, timedelta
 import redis.asyncio as redis
-from redis.exceptions import RedisError
 
 from ..core.config import settings
 from ..telemetry import logger

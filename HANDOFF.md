@@ -4,11 +4,59 @@
 
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists.
 
-**Current State**: Production-ready, 100% online mode, CI unblocked.
+**Current State**: Production-ready locally, CI partially red, Docker cache fixed.
 **Version**: v2.4.0 (latest session 2026-04-16, built on the 2026-04-14 consolidation)
-**Latest Work**: Post-merge stabilization — real IDOR fix, secrets-scan unblock, dead-module purge, documentation reality check.
+**Branch**: `refactor/stabilization-2026-04-16` — PR #3 open, 10 commits, mergeable.
+**Latest Work**: Docker cache fix for MTGA DFC export, CI failure analysis.
 
-## Session 2026-04-16 — Post-merge stabilization (6 audit agents + atomic fixes)
+---
+
+## Session 2026-04-16 (evening) — Docker cache fix + CI triage
+
+### What was done
+- **Docker cache invalidated** — backend container was running a stale `exporters/mtga.py` without the `_mtga_name` DFC fix. Rebuilt with `--no-cache`, verified the fix is inside the container (`_mtga_name` uses `.split(" // ")[0]`).
+- **Full CI failure analysis** on PR #3 (see below).
+
+### Current local state: WORKING
+- Backend: healthy v2.4.0, Redis + Postgres connected, Vision-primary ON (port 8080)
+- Webapp: Next.js dev server on port 3001
+- MTGA export: DFC/split/adventure cards correctly export front-face only
+- Pipeline: upload → Vision Gemini → Scryfall batch → 60+15 → results → export — all working
+
+### What to do after reboot
+1. **Start Docker Desktop** — `open -a "Docker Desktop"`, wait ~30s
+2. **Start services** — `docker compose --profile core up -d`
+3. **Start webapp** — `cd webapp && npx next dev -p 3001`
+4. **Verify** — `curl http://localhost:8080/health`
+
+### PR #3 CI status (as of 2026-04-16 evening)
+
+| Workflow | Status | Root cause |
+|----------|--------|------------|
+| CI/CD Pipeline (Test Backend) | **GREEN** | |
+| CI/CD Pipeline (Test Frontend) | **GREEN** | |
+| CI/CD Pipeline (Lint Code) | **RED** | Lint failures (likely black/ruff on new files) |
+| Security Checks (all 7 jobs) | **GREEN** | |
+| health (core) | **GREEN** | |
+| golden-exports (verify-exports) | **RED** | `PermissionError` on Scryfall bulk download in CI container (`/app/app/data/` not writable). Backend starts OK without it, exports succeed, but the workflow step fails. |
+| Independent Benchmark (bench) | **RED** | `AttributeError: 'ValidationInfo' object has no attribute 'get'` in `core/config.py:150` — pydantic v2 `@field_validator` uses `info: FieldValidationInfo` not a dict. The `build_database_url` validator uses `values.get("APP_ENV")` which is pydantic v1 syntax. |
+| E2E Tests (Playwright) | **RED** | firefox/mobile fail, chromium/webkit/perf/security/a11y cancelled. `test-summary` fails with 403 "Resource not accessible by integration" (workflow permissions issue: needs `issues: write` or `pull-requests: write`). |
+| e2e-online | **RED** | Likely same compose/config issues |
+
+### Priority fixes for next session (in order)
+
+1. **Fix `core/config.py:150` pydantic v2 validator** — change `values.get("APP_ENV")` to `info.data.get("APP_ENV")`. This blocks bench CI and any import of `core.config.Settings` outside Docker.
+2. **Fix Scryfall bulk download permissions in CI** — either `mkdir -p /app/app/data && chmod 777` in Dockerfile, or set `SKIP_SCRYFALL_DOWNLOAD=true` in golden-exports workflow.
+3. **Fix E2E workflow permissions** — add `permissions: pull-requests: write` to the e2e-tests.yml workflow.
+4. **Fix lint** — run `ruff check --fix` or `black` on flagged files.
+5. **Test MTGA DFC export in browser** — upload a deck with DFC cards, verify front-face-only in MTGA export.
+
+### Commit already pushed
+- `22a182f` fix: MTGA export uses front-face only for DFC/split/adventure cards — **already on remote**, code is correct, Docker just needed rebuild.
+
+---
+
+## Session 2026-04-16 (morning) — Post-merge stabilization (6 audit agents + atomic fixes)
 
 Ran a full 6-agent audit on the merged v2.4.0 main (`context-manager`, `documentation-expert`, `Security-Auditor`, `qa-expert`, `performance-engineer`, then the orchestrator applying the atomic fixes). The audits confirmed the 2026-04-14 consolidation landed correctly, found 20+ drift items, and the orchestrator applied them as a single dependency-free sweep on top of `main`.
 

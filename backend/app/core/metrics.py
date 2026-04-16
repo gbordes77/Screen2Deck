@@ -7,8 +7,6 @@ from prometheus_client import (
     Counter,
     Histogram,
     Gauge,
-    Summary,
-    Info,
     CollectorRegistry,
     generate_latest,
 )

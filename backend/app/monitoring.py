@@ -7,13 +7,11 @@ from prometheus_client import (
     Counter,
     Histogram,
     Gauge,
-    Summary,
     generate_latest,
     CONTENT_TYPE_LATEST,
     CollectorRegistry,
 )
 from fastapi import Request, Response
-from fastapi.responses import PlainTextResponse
 import time
 import psutil
 from typing import Callable

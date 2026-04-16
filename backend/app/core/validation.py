@@ -4,17 +4,15 @@ Provides comprehensive validation for file uploads and user inputs.
 """
 
 import hashlib
-import io
 import magic
-from typing import Optional, Tuple, Dict, Any
+from typing import Tuple, Dict, Any
 from pathlib import Path
 import cv2
 import numpy as np
-from PIL import Image
 from fastapi import HTTPException, UploadFile, status
 
 from ..telemetry import logger
-from ..error_taxonomy import BAD_IMAGE, VALIDATION_ERROR
+from ..error_taxonomy import BAD_IMAGE
 
 # Allowed image MIME types
 ALLOWED_MIME_TYPES = {

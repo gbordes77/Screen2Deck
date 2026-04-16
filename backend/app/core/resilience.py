@@ -3,14 +3,13 @@ Resilience patterns implementation.
 Provides circuit breakers, retries, and timeouts.
 """
 
-from typing import Callable, Any, Optional, TypeVar, Union
+from typing import Callable, Optional, TypeVar
 from functools import wraps
 import asyncio
 import time
-from datetime import datetime, timedelta
+from datetime import datetime
 from enum import Enum
 import random
-from collections import deque
 
 from ..telemetry import logger
 
@@ -74,7 +73,7 @@ class CircuitBreaker:
             result = func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self._on_failure()
             raise
 
@@ -91,7 +90,7 @@ class CircuitBreaker:
             result = await func(*args, **kwargs)
             self._on_success()
             return result
-        except self.expected_exception as e:
+        except self.expected_exception:
             self._on_failure()
             raise
 

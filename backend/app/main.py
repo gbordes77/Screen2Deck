@@ -39,21 +39,15 @@ from .core.auth_middleware import AuthMiddleware, SecurityHeadersMiddleware
 from .core.job_storage import job_storage
 from .core.validation import image_validator, text_validator, request_validator
 from .core.feature_flags import FeatureFlags
-from .core.idempotency import generate_job_key, verify_idempotency
+from .core.idempotency import generate_job_key
 from .core.metrics_minimal import (
     create_metrics_app,
     track_ocr_request,
     record_cache_access,
-    record_export,
-    OCR_REQUESTS,
-    JOBS_INFLIGHT,
 )
 from .auth import (
     TokenData,
-    create_access_token,
-    get_current_token,
     get_optional_token,
-    require_permission,
 )
 
 # Application imports
@@ -72,7 +66,6 @@ from .error_taxonomy import *
 from .pipeline.preprocess import preprocess_variants
 from .pipeline.ocr import run_easyocr_best_of, run_vision_fallback
 from .pipeline.vision_providers import run_vision_chain_structured
-from .matching.fuzzy import score_candidates
 from .matching.scryfall_client import SCRYFALL
 from .business_rules import apply_mtgo_land_fix, validate_and_fill
 from .routers import health, auth_router, export_router
@@ -337,9 +330,7 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
             settings, "VISION_PRIMARY", False
         ):
             try:
-                structured = await asyncio.to_thread(
-                    run_vision_chain_structured, img
-                )
+                structured = await asyncio.to_thread(run_vision_chain_structured, img)
             except Exception as vision_exc:
                 logger.warning("Vision-primary chain failed: %s", vision_exc)
                 structured = None

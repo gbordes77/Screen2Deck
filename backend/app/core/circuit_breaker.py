@@ -4,10 +4,9 @@ Prevents cascading failures and controls costs.
 """
 
 import time
-from typing import Optional, Dict, Any
-from datetime import datetime, timedelta
+from typing import Dict, Any
+from datetime import datetime
 from enum import Enum
-import statistics
 
 from app.config import settings
 from app.telemetry import logger

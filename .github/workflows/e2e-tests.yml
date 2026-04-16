@@ -17,6 +17,14 @@ concurrency:
   group: e2e-${{ github.ref }}
   cancel-in-progress: true
 
+# test-summary posts a comment on the PR via github-script. Default
+# GITHUB_TOKEN on pull_request events from forks gets read-only scopes,
+# so the comment call 403s. Grant the scopes the summary job needs.
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+
 env:
   WEB_URL: http://localhost:3000
   API_URL: http://localhost:8080

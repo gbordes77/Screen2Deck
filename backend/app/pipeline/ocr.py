@@ -68,7 +68,7 @@ def run_easyocr(img: np.ndarray, min_confidence: float = 0.3):
     # Filter by confidence (from reference project)
     # Lower threshold (0.3) keeps more potential cards rather than missing them
     spans = []
-    for (*_, text, conf) in results:
+    for *_, text, conf in results:
         if conf >= min_confidence:
             spans.append({"text": text, "conf": float(conf)})
 

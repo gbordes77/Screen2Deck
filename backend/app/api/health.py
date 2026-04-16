@@ -2,8 +2,8 @@
 Health check endpoints with detailed system information.
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import Dict, Any
 import os
 import psutil
 import redis
