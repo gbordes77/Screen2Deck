@@ -71,5 +71,12 @@ HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
 # Run as non-root user
 USER screen2deck
 
-# Auto-hydrate Scryfall on first run; then start API
-CMD bash -lc 'if [ ! -f ./app/data/scryfall-default-cards.json ]; then python scripts/download_scryfall.py; fi; python -m uvicorn app.main:app --host 0.0.0.0 --port 8080'
+# Auto-hydrate Scryfall on first run (skippable via env for CI where
+# the 510 MB download would time out the health check). The backend
+# starts fine without the bulk file — main.py lifespan logs "skipping
+# hydration" and falls back to online Scryfall API calls.
+CMD bash -lc '\
+  if [ "$SKIP_SCRYFALL_DOWNLOAD" != "true" ] && [ ! -f ./app/data/scryfall-default-cards.json ]; then \
+    python scripts/download_scryfall.py || echo "Scryfall download failed — continuing without bulk cache"; \
+  fi; \
+  python -m uvicorn app.main:app --host 0.0.0.0 --port 8080'

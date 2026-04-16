@@ -6,6 +6,10 @@ on: [push, pull_request]
 env:
   POSTGRES_PASSWORD: ci-postgres-password-for-testing-only
   JWT_SECRET_KEY: ci-jwt-secret-key-at-least-32-chars-long-for-testing-only
+  # Skip the 510 MB Scryfall bulk download in CI — it takes 3-5 min
+  # and the health check times out. The backend starts fine without it
+  # (lifespan logs "skipping hydration" and uses online API calls).
+  SKIP_SCRYFALL_DOWNLOAD: "true"
 
 jobs:
   core:
@@ -19,10 +23,11 @@ jobs:
           ALWAYS_VERIFY_SCRYFALL=true
           FEATURE_TELEMETRY=false
           OTEL_SDK_DISABLED=true
+          SKIP_SCRYFALL_DOWNLOAD=true
           ENV
       - run: docker compose --profile core up -d --build redis postgres backend
       - run: |
-          for i in {1..40}; do curl -sf http://localhost:8080/health && exit 0; sleep 3; done; exit 1
+          for i in {1..60}; do curl -sf http://localhost:8080/health && exit 0; sleep 3; done; exit 1
       - name: Dump backend logs on failure
         if: failure()
         run: docker compose logs backend --tail 200

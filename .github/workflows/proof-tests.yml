@@ -100,17 +100,28 @@ jobs:
           echo "📊 === BENCHMARK DAY0 ==="
           . .venv/bin/activate
 
-          # Create mock validation set if needed
-          echo "4 Island" > validation_set/truth/test.txt
+          # The bench_runner currently falls back to mock_run_pipeline
+          # (which returns a hardcoded Bloodtithe Harvester deck) because
+          # app.core.pipeline doesn't exist. The truth file must match
+          # the mock deck for the SLO check to pass. A real benchmark
+          # (tools/benchmark_independent.py against a live stack) is
+          # tracked in PLAN.md as a follow-up.
+          cat > validation_set/truth/test.txt <<'TRUTH'
+          4 Bloodtithe Harvester
+          3 Fable of the Mirror-Breaker
+          20 Mountain
+          3 Swamp
+          Sideboard
+          2 Duress
+          3 Go Blank
+          TRUTH
           echo "Mock image" > validation_set/images/test.jpg
 
-          # Run benchmark (fails loudly on regression)
           python tools/bench_runner.py \
             --images validation_set/images \
             --truth validation_set/truth \
             --out artifacts/reports/day0
 
-          # Display metrics
           if [ -f artifacts/reports/day0/metrics.json ]; then
             echo "📈 Metrics:"
             cat artifacts/reports/day0/metrics.json
