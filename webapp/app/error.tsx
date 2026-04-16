@@ -16,9 +16,9 @@ export default function GlobalError({
   return (
     <div className="min-h-[60vh] flex items-center justify-center p-8">
       <div className="mtg-card p-8 max-w-md w-full text-center space-y-4 animate-fade-in">
-        <div className="w-14 h-14 mx-auto rounded-full bg-mtg-red/10 flex items-center justify-center">
+        <div className="w-14 h-14 mx-auto rounded-full bg-mana-red-soft border border-mana-red/20 flex items-center justify-center">
           <svg
-            className="w-7 h-7 text-mtg-red"
+            className="w-7 h-7 text-mana-red"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -31,7 +31,7 @@ export default function GlobalError({
             />
           </svg>
         </div>
-        <h1 className="text-xl font-semibold text-mtg-text">
+        <h1 className="font-heading text-xl text-mtg-text">
           Something went wrong
         </h1>
         <p className="text-sm text-mtg-subtle">

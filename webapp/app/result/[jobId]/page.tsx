@@ -13,10 +13,10 @@ import {
 } from "@/lib/api";
 
 const EXPORT_TARGETS = [
-  { id: "mtga", label: "MTGA", color: "bg-mtg-gold/20 text-mtg-gold border-mtg-gold/30" },
-  { id: "moxfield", label: "Moxfield", color: "bg-mtg-blue/20 text-blue-300 border-mtg-blue/30" },
-  { id: "archidekt", label: "Archidekt", color: "bg-mtg-green/20 text-green-300 border-mtg-green/30" },
-  { id: "tappedout", label: "TappedOut", color: "bg-mtg-red/20 text-red-300 border-mtg-red/30" },
+  { id: "mtga", label: "MTGA", chip: "export-chip--gold" },
+  { id: "moxfield", label: "Moxfield", chip: "export-chip--blue" },
+  { id: "archidekt", label: "Archidekt", chip: "export-chip--green" },
+  { id: "tappedout", label: "TappedOut", chip: "export-chip--red" },
 ] as const;
 
 type ExportTarget = (typeof EXPORT_TARGETS)[number]["id"];
@@ -27,9 +27,9 @@ interface PageProps {
 
 function CardRow({ card }: { card: NormalizedCard }) {
   return (
-    <li className="flex items-center justify-between py-1.5 px-3 rounded-lg hover:bg-mtg-surface/80 transition-colors group">
-      <span className="flex items-center gap-2 min-w-0">
-        <span className="text-mtg-gold font-mono text-sm w-6 text-right flex-shrink-0">
+    <li className="flex items-center justify-between py-1.5 px-3 rounded-md hover:bg-mana-blue-soft/40 transition-colors group">
+      <span className="flex items-center gap-3 min-w-0">
+        <span className="font-mono text-xs text-mana-blue w-6 text-right flex-shrink-0 font-semibold">
           {card.qty}
         </span>
         <span className="text-mtg-text truncate">{card.name}</span>
@@ -39,10 +39,10 @@ function CardRow({ card }: { card: NormalizedCard }) {
           href={`https://scryfall.com/card/${card.scryfall_id}`}
           target="_blank"
           rel="noopener noreferrer"
-          className="text-xs text-mtg-muted hover:text-mtg-gold opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-2"
+          className="text-xs text-mtg-muted hover:text-mana-blue opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0 ml-3"
           aria-label={`View ${card.name} on Scryfall`}
         >
-          Scryfall
+          Scryfall ↗
         </a>
       )}
     </li>
@@ -52,22 +52,24 @@ function CardRow({ card }: { card: NormalizedCard }) {
 function DeckSection({
   title,
   cards,
+  accentClass,
   icon,
 }: {
   title: string;
   cards: NormalizedCard[];
+  accentClass: string;
   icon: React.ReactNode;
 }) {
   const total = cards.reduce((s, c) => s + c.qty, 0);
   return (
-    <div className="mtg-card p-5 animate-slide-up">
-      <div className="flex items-center justify-between mb-3">
-        <h3 className="flex items-center gap-2 font-semibold text-mtg-text">
-          {icon}
+    <div className="mtg-card mtg-card--hover p-6 animate-slide-up">
+      <div className="flex items-center justify-between mb-4">
+        <h3 className="flex items-center gap-2.5 font-heading font-semibold text-lg text-mtg-text">
+          <span className={accentClass}>{icon}</span>
           {title}
         </h3>
-        <span className="text-xs px-2 py-0.5 rounded-full bg-mtg-gold/10 text-mtg-gold font-mono">
-          {total} cards &middot; {cards.length} unique
+        <span className="font-mono text-xs text-mtg-subtle bg-mtg-bg-soft px-2.5 py-1 rounded-full border border-mtg-border">
+          {total} · {cards.length} unique
         </span>
       </div>
       <ul className="space-y-0.5">
@@ -76,7 +78,9 @@ function DeckSection({
         ))}
       </ul>
       {cards.length === 0 && (
-        <p className="text-sm text-mtg-muted py-4 text-center">No cards</p>
+        <p className="text-sm text-mtg-muted py-6 text-center italic">
+          No cards
+        </p>
       )}
     </div>
   );
@@ -84,18 +88,19 @@ function DeckSection({
 
 function ProcessingState() {
   return (
-    <div className="min-h-[60vh] flex items-center justify-center">
+    <div className="min-h-[60vh] flex items-center justify-center px-4">
       <div className="text-center space-y-6 animate-fade-in">
         <div className="relative w-20 h-20 mx-auto">
-          <div className="absolute inset-0 rounded-full border-2 border-mtg-gold/20" />
-          <div className="absolute inset-0 rounded-full border-2 border-mtg-gold border-t-transparent animate-spin" />
-          <div className="absolute inset-3 rounded-full bg-mtg-gold/10 flex items-center justify-center">
+          <div className="absolute inset-0 rounded-full border-2 border-mana-blue/20" />
+          <div className="absolute inset-0 rounded-full border-2 border-mana-blue border-t-transparent animate-spin" />
+          <div className="absolute inset-3 rounded-full bg-mana-blue-soft flex items-center justify-center">
             <svg
-              className="w-8 h-8 text-mtg-gold"
+              className="w-8 h-8 text-mana-blue"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth="1.5"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -111,8 +116,8 @@ function ProcessingState() {
           </div>
         </div>
         <div>
-          <p className="text-lg font-medium text-mtg-text">
-            Analyzing your deck...
+          <p className="font-heading text-xl text-mtg-text">
+            Analyzing your deck…
           </p>
           <p className="text-sm text-mtg-subtle mt-1">
             Vision AI is reading card names and quantities
@@ -190,7 +195,7 @@ export default function Result({ params }: PageProps) {
         const { text } = await exportDeck(target, deck);
         await navigator.clipboard.writeText(text);
         setCopiedFormat(target);
-        setTimeout(() => setCopiedFormat(null), 2500);
+        setTimeout(() => setCopiedFormat(null), 2200);
       } catch (e) {
         setErr(
           e instanceof ApiError
@@ -206,18 +211,19 @@ export default function Result({ params }: PageProps) {
 
   if (err) {
     return (
-      <div className="min-h-[60vh] flex items-center justify-center">
+      <div className="min-h-[60vh] flex items-center justify-center px-4">
         <div
           role="alert"
           className="mtg-card p-8 max-w-md text-center space-y-4 animate-fade-in"
         >
-          <div className="w-14 h-14 mx-auto rounded-full bg-mtg-red/10 flex items-center justify-center">
+          <div className="w-14 h-14 mx-auto rounded-full bg-mana-red-soft border border-mana-red/20 flex items-center justify-center">
             <svg
-              className="w-7 h-7 text-mtg-red"
+              className="w-7 h-7 text-mana-red"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth="1.5"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -226,8 +232,11 @@ export default function Result({ params }: PageProps) {
               />
             </svg>
           </div>
-          <p className="text-red-400">{err}</p>
-          <Link href="/" className="mtg-btn-ghost inline-block">
+          <h2 className="font-heading text-lg text-mtg-text">
+            Something broke
+          </h2>
+          <p className="text-sm text-mtg-subtle">{err}</p>
+          <Link href="/" className="mtg-btn-ghost">
             Try another image
           </Link>
         </div>
@@ -241,26 +250,34 @@ export default function Result({ params }: PageProps) {
 
   const mainTotal = deck.main.reduce((s, c) => s + c.qty, 0);
   const sideTotal = deck.side.reduce((s, c) => s + c.qty, 0);
+  const validated =
+    deck.main.filter((c) => c.scryfall_id).length +
+    deck.side.filter((c) => c.scryfall_id).length;
+  const totalCards = deck.main.length + deck.side.length;
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-8 space-y-6">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 space-y-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 animate-fade-in">
         <div>
-          <h1 className="text-2xl font-bold text-mtg-text">Deck Analysis</h1>
-          <p className="text-sm text-mtg-subtle mt-1">
-            {mainTotal + sideTotal} cards total &middot;{" "}
-            {deck.main.length + deck.side.length} unique &middot; Job{" "}
-            <span className="font-mono text-xs">{jobId.slice(0, 8)}</span>
+          <h1 className="brand-title font-heading text-3xl sm:text-4xl">
+            Deck Analysis
+          </h1>
+          <p className="text-sm text-mtg-subtle mt-2">
+            {mainTotal + sideTotal} cards total · {totalCards} unique ·{" "}
+            <span className="font-mono text-xs text-mtg-muted">
+              job {jobId.slice(0, 8)}
+            </span>
           </p>
         </div>
-        <Link href="/" className="mtg-btn-ghost flex items-center gap-2">
+        <Link href="/" className="mtg-btn-ghost">
           <svg
             className="w-4 h-4"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
             strokeWidth="2"
+            aria-hidden="true"
           >
             <path
               strokeLinecap="round"
@@ -268,31 +285,53 @@ export default function Result({ params }: PageProps) {
               d="M12 4.5v15m7.5-7.5h-15"
             />
           </svg>
-          New Scan
+          New scan
         </Link>
       </div>
 
       {/* Stats bar */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-slide-up">
+      <div
+        className="grid grid-cols-2 sm:grid-cols-4 gap-3 animate-slide-up"
+        style={{ animationDelay: "80ms" }}
+      >
         {[
-          { label: "Mainboard", value: mainTotal, sub: `${deck.main.length} unique` },
-          { label: "Sideboard", value: sideTotal, sub: `${deck.side.length} unique` },
-          { label: "Total", value: mainTotal + sideTotal, sub: "cards" },
+          {
+            label: "Mainboard",
+            value: mainTotal,
+            sub: `${deck.main.length} unique`,
+            color: "text-mana-white",
+          },
+          {
+            label: "Sideboard",
+            value: sideTotal,
+            sub: `${deck.side.length} unique`,
+            color: "text-mtg-subtle",
+          },
+          {
+            label: "Total",
+            value: mainTotal + sideTotal,
+            sub: "cards",
+            color: "text-mana-blue",
+          },
           {
             label: "Validated",
-            value: `${deck.main.filter((c) => c.scryfall_id).length + deck.side.filter((c) => c.scryfall_id).length}/${deck.main.length + deck.side.length}`,
+            value: `${validated}/${totalCards}`,
             sub: "Scryfall",
+            color:
+              validated === totalCards ? "text-mana-green" : "text-mana-white",
           },
         ].map((stat) => (
-          <div
-            key={stat.label}
-            className="mtg-card p-4 text-center"
-          >
-            <div className="text-2xl font-bold text-mtg-gold">
+          <div key={stat.label} className="mtg-card p-4 text-center">
+            <div
+              className={`font-heading font-bold text-2xl ${stat.color}`}
+            >
               {stat.value}
             </div>
-            <div className="text-xs text-mtg-subtle mt-0.5">
+            <div className="text-xs text-mtg-subtle mt-1 uppercase tracking-wider font-medium">
               {stat.label}
+            </div>
+            <div className="text-[10px] text-mtg-muted mt-0.5 font-mono">
+              {stat.sub}
             </div>
           </div>
         ))}
@@ -303,13 +342,15 @@ export default function Result({ params }: PageProps) {
         <DeckSection
           title="Mainboard"
           cards={deck.main}
+          accentClass="text-mana-white"
           icon={
             <svg
-              className="w-5 h-5 text-mtg-gold"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth="1.5"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -322,13 +363,15 @@ export default function Result({ params }: PageProps) {
         <DeckSection
           title="Sideboard"
           cards={deck.side}
+          accentClass="text-mtg-subtle"
           icon={
             <svg
-              className="w-5 h-5 text-mtg-subtle"
+              className="w-5 h-5"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
               strokeWidth="1.5"
+              aria-hidden="true"
             >
               <path
                 strokeLinecap="round"
@@ -341,70 +384,54 @@ export default function Result({ params }: PageProps) {
       </div>
 
       {/* Export section */}
-      <div className="mtg-card p-6 animate-slide-up">
-        <h2 className="font-semibold text-mtg-text mb-4 flex items-center gap-2">
-          <svg
-            className="w-5 h-5 text-mtg-gold"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke="currentColor"
-            strokeWidth="1.5"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75"
-            />
-          </svg>
-          Export to Clipboard
+      <div
+        className="mtg-card p-6 animate-slide-up"
+        style={{ animationDelay: "160ms" }}
+      >
+        <h2 className="font-heading font-semibold text-xl text-mtg-text mb-4 flex items-center gap-2">
+          <span aria-hidden="true">📋</span>
+          Export to clipboard
         </h2>
         <div className="flex flex-wrap gap-3">
-          {EXPORT_TARGETS.map((target) => (
-            <button
-              key={target.id}
-              type="button"
-              onClick={() => copy(target.id)}
-              aria-label={`Copy deck in ${target.label} format`}
-              className={`
-                px-5 py-2.5 rounded-lg border text-sm font-medium
-                transition-all duration-200
-                hover:brightness-125 hover:shadow-gold
-                focus-visible:ring-2 focus-visible:ring-mtg-gold/60
-                ${target.color}
-                ${copiedFormat === target.id ? "ring-2 ring-green-400/60" : ""}
-              `}
-            >
-              {copiedFormat === target.id ? (
-                <span className="flex items-center gap-1.5">
-                  <svg
-                    className="w-4 h-4 text-green-400"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
-                    strokeWidth="2"
-                  >
-                    <path
-                      strokeLinecap="round"
-                      strokeLinejoin="round"
-                      d="M4.5 12.75l6 6 9-13.5"
-                    />
-                  </svg>
-                  Copied!
-                </span>
-              ) : (
-                target.label
-              )}
-            </button>
-          ))}
+          {EXPORT_TARGETS.map((target) => {
+            const isCopied = copiedFormat === target.id;
+            return (
+              <button
+                key={target.id}
+                type="button"
+                onClick={() => copy(target.id)}
+                aria-label={`Copy deck in ${target.label} format`}
+                className={`export-chip ${isCopied ? "export-chip--copied" : target.chip}`}
+              >
+                {isCopied ? (
+                  <>
+                    <svg
+                      className="w-4 h-4"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth="2.4"
+                      aria-hidden="true"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M4.5 12.75l6 6 9-13.5"
+                      />
+                    </svg>
+                    Copied
+                  </>
+                ) : (
+                  target.label
+                )}
+              </button>
+            );
+          })}
         </div>
-        <div
-          aria-live="polite"
-          role="status"
-          className="mt-3 h-5 text-xs text-mtg-subtle"
-        >
-          {copiedFormat &&
-            `${EXPORT_TARGETS.find((t) => t.id === copiedFormat)?.label} format copied to clipboard`}
-        </div>
+        <p className="text-xs text-mtg-muted mt-4">
+          Click a format to copy the full deck list to your clipboard. MTGA uses
+          front-face only for DFC / split / adventure cards.
+        </p>
       </div>
     </div>
   );

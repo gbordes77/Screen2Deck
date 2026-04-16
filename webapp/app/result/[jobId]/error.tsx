@@ -20,9 +20,9 @@ export default function ResultError({
         role="alert"
         className="mtg-card p-8 max-w-md text-center space-y-4 animate-fade-in"
       >
-        <div className="w-14 h-14 mx-auto rounded-full bg-mtg-red/10 flex items-center justify-center">
+        <div className="w-14 h-14 mx-auto rounded-full bg-mana-red-soft border border-mana-red/20 flex items-center justify-center">
           <svg
-            className="w-7 h-7 text-mtg-red"
+            className="w-7 h-7 text-mana-red"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"
@@ -35,7 +35,7 @@ export default function ResultError({
             />
           </svg>
         </div>
-        <h2 className="text-lg font-semibold text-mtg-text">
+        <h2 className="font-heading text-xl text-mtg-text">
           Failed to load result
         </h2>
         <p className="text-sm text-mtg-subtle">
