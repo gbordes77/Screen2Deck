@@ -336,7 +336,13 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         if settings.ENABLE_VISION_FALLBACK and getattr(
             settings, "VISION_PRIMARY", False
         ):
-            structured = await asyncio.to_thread(run_vision_chain_structured, img)
+            try:
+                structured = await asyncio.to_thread(
+                    run_vision_chain_structured, img
+                )
+            except Exception as vision_exc:
+                logger.warning("Vision-primary chain failed: %s", vision_exc)
+                structured = None
             if structured and (structured.get("main") or structured.get("side")):
                 main_entries = [
                     CardEntry(
@@ -374,7 +380,14 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
                 ocr_raw["mean_conf"] < settings.OCR_MIN_CONF
                 or count_qty_lines(ocr_raw["spans"]) < settings.OCR_MIN_LINES
             ) and settings.ENABLE_VISION_FALLBACK:
-                best_img = max(variants, key=lambda im: cv2.countNonZero(im))
+                best_img = max(
+                    variants,
+                    key=lambda im: cv2.countNonZero(
+                        cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                        if len(im.shape) == 3
+                        else im
+                    ),
+                )
                 ocr_raw = run_vision_fallback(best_img)
                 ocr_method = "vision_fallback_text"
 
