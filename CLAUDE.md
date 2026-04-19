@@ -4,7 +4,16 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 
 ## Project Status: Production Ready (v2.4.0)
 
-**Latest Update**: 2026-04-16 — Post-merge stabilization wave (6-agent audit + fixes)
+**Latest Update**: 2026-04-17 — OCR-first policy flip (AI becomes an opt-in backup)
+
+Highlights of the 2026-04-17 session:
+
+- **Default OCR path reverted to EasyOCR + OpenCV** — MTG community feedback flagged the Vision-primary default as a trust issue. `VISION_PRIMARY` now defaults to **false** in `backend/app/config.py`, `backend/app/core/config.py`, `docker-compose.yml`, and `backend/.env.docker`. A fresh `docker compose up` no longer calls Gemini or Claude; the deterministic preprocess → EasyOCR best-of → regex parser → Scryfall batch pipeline is the canonical route. Operators who prefer the LLM fast path can still flip `VISION_PRIMARY=true`.
+- **EasyOCR parameters tuned for game screenshots** — `pipeline/ocr.py::run_easyocr` now passes `contrast_ths=0.1`, `adjust_contrast=0.5`, `text_threshold=0.6`, `low_text=0.3`, `link_threshold=0.4`, `mag_ratio=1.5`, `canvas_size=2560`. Sourced from the EasyOCR docs via context7 (`/jaidedai/easyocr`) — the contrast adjustments in particular lift dark MTGO screenshots that CLAHE alone under-processed.
+- **Vision path is now explicitly a backup** — `ENABLE_VISION_FALLBACK=true` stays the default so low-confidence scans can still escalate, but the module docstring in `pipeline/vision_providers.py` and the env-var comments in both config modules now describe the LLM chain as a backup, not the main route.
+- **Docs realigned** — README hero copy, architecture diagram, and env-var table rewritten to describe an OCR-primary system with AI as opt-in backup.
+
+**Previous session (2026-04-16)**: Post-merge stabilization wave (6-agent audit + fixes)
 
 Highlights of the 2026-04-16 session (on top of the 2026-04-14 consolidation):
 
@@ -72,27 +81,37 @@ Landed on `refactor/consolidation-2026-04-14` in 13 commits:
 
 ## OCR Processing Pipeline
 
-Two code paths coexist in `main.py::process_ocr`. The default is the
-Vision-primary fast path; the legacy EasyOCR path is a fallback.
+Two code paths coexist in `main.py::process_ocr`. The **default is the
+EasyOCR + OpenCV primary path**; the Vision LLM path is an opt-in
+alternative + a low-confidence backup.
 
 ```
-Vision-primary (default, VISION_PRIMARY=true):
+EasyOCR-primary (default, VISION_PRIMARY=false):
 1. IMAGE UPLOAD → Validation and storage
-2. VISION LLM → Gemini 2.5 Flash (response_json_schema) → Claude Haiku 4.5 fallback
-3. SCRYFALL BATCH VALIDATION → /cards/collection (75 IDs per request)
-4. MTGO 60+15 REDISTRIBUTION (apply_mtgo_land_fix)
-5. EXPORT → MTGA, Moxfield, Archidekt, TappedOut
+2. PREPROCESSING → 4 variants (Original, CLAHE, Denoised+Sharpened,
+   Adaptive threshold); optional 4× super-res below SUPERRES_MIN_WIDTH
+3. EASYOCR best-of → contrast-lifted, mag_ratio=1.5, canvas_size=2560,
+   early-stop at OCR_EARLY_STOP_CONF (0.85)
+4. CONFIDENCE CHECK → If mean conf < OCR_MIN_CONF (0.62)
+   OR qty-line count < OCR_MIN_LINES (10)
+   AND ENABLE_VISION_FALLBACK=true AND a provider has an API key:
+     retry with Vision chain (Gemini 2.5 Flash → Claude Haiku 4.5).
+   Otherwise EasyOCR's best-effort result is used as-is.
+5. PARSE_DECK_SECTIONS → Regex parser over OCR spans
+6. SCRYFALL BATCH VALIDATION → /cards/collection (75 IDs per request)
+7. MTGO 60+15 REDISTRIBUTION (apply_mtgo_land_fix)
+8. EXPORT → MTGA, Moxfield, Archidekt, TappedOut
 
-Legacy EasyOCR path (taken when the Vision call fails):
-1. PREPROCESSING → 4 variants (Original, Denoised, Binarized, Sharpened)
-2. EASYOCR → Multi-pass OCR with 85% early-stop / 62% fallback thresholds
-3. CONFIDENCE CHECK → If <62% and ENABLE_VISION_FALLBACK=true, retry with Vision
-4. PARSE_DECK_SECTIONS → Regex parser over OCR text
-5. SCRYFALL BATCH VALIDATION → Same as above
-6. EXPORT → Same as above
+Vision-primary (opt-in, VISION_PRIMARY=true):
+1. IMAGE UPLOAD → Validation and storage
+2. VISION LLM → Gemini structured JSON → Claude tool-use fallback,
+   typed {main, side} output, skips preprocess + EasyOCR + regex
+3. On Vision failure → EasyOCR-primary path above as full fallback
+4. SCRYFALL BATCH VALIDATION → Same as above
+5. EXPORT → Same as above
 ```
 
-**Important**: This project uses EasyOCR (never Tesseract) as the fallback OCR engine.
+**Important**: This project uses EasyOCR (never Tesseract) as the primary OCR engine.
 
 ## Project Structure
 
@@ -126,15 +145,15 @@ ALWAYS_VERIFY_SCRYFALL=true      # Never disable
 FEATURE_TELEMETRY=false          # Disable in dev
 
 # OCR Configuration
-# Default in v2.4.0 is VISION_PRIMARY=true. When true, the "(legacy path only)"
-# variables below are read but have no effect on the happy path.
-ENABLE_VISION_FALLBACK=true      # Enable the Vision LLM chain at all
-VISION_PRIMARY=true              # Route Vision LLM FIRST, EasyOCR fallback
-ENABLE_SUPERRES=true             # 4× upscaling for small images (legacy path only)
-OCR_MIN_CONF=0.62                # Trigger Vision fallback below this (legacy path only)
-OCR_EARLY_STOP_CONF=0.85         # EasyOCR early-stop threshold (legacy path only)
-OCR_MIN_SPAN_CONF=0.3            # Min confidence per text span (legacy path only)
-SUPERRES_MIN_WIDTH=1200          # Trigger super-res below this width (legacy path only)
+# Default in v2.4.0 (post 2026-04-17) is VISION_PRIMARY=false — EasyOCR
+# + OpenCV is the primary path. All knobs below are live on that path.
+ENABLE_VISION_FALLBACK=true      # Keep the Vision LLM chain wired as a low-conf backup
+VISION_PRIMARY=false             # Leave false to keep OCR as the primary path
+ENABLE_SUPERRES=true             # 4× upscaling for small images
+OCR_MIN_CONF=0.62                # Trigger Vision backup below this
+OCR_EARLY_STOP_CONF=0.85         # EasyOCR early-stop threshold
+OCR_MIN_SPAN_CONF=0.3            # Min confidence per text span
+SUPERRES_MIN_WIDTH=1200          # Trigger super-res below this width
 
 # Vision providers (v2.4.0+)
 VISION_PROVIDER=gemini,claude    # Comma-separated chain, first available wins
@@ -189,7 +208,8 @@ make down          # Stop services
 4. **Performance on CPU**: ~9s average (GPU required for <3s performance)
 5. **First run slow**: EasyOCR downloads models (~64MB) on first use
 6. **Rate limiting errors**: per-endpoint IP limits enforced by `core/auth_middleware.py` (upload 10/min burst 3, status 60/min burst 10, export 20/min burst 5). Add delays in benchmark scripts.
-7. **Vision API not triggering** (legacy path): check `OCR_MIN_CONF` (default 0.62). On the Vision-primary fast path this threshold is unused.
+7. **Vision API not triggering**: on the default OCR-primary path it only runs when mean confidence drops below `OCR_MIN_CONF` (0.62) or fewer than `OCR_MIN_LINES` (10) qty-lines are found — a clean Arena screenshot should stay entirely on EasyOCR. If you want to force the LLM path for testing, set `VISION_PRIMARY=true`.
+8. **No Gemini/Anthropic key configured**: the Vision chain is a no-op and EasyOCR's best-effort result is returned as-is. This is the intended "OCR-only" deployment mode.
 
 ## Testing
 

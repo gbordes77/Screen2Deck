@@ -54,6 +54,21 @@ def run_easyocr(img: np.ndarray, min_confidence: float = 0.3):
 
     Returns:
         OCR results with filtered spans
+
+    Notes:
+        The detection parameters below were tuned against the EasyOCR
+        docs (context7 /jaidedai/easyocr) for low-contrast game
+        screenshots:
+          - ``contrast_ths=0.1`` + ``adjust_contrast=0.5`` lift dark
+            MTGO/MTGA screenshots that CLAHE alone doesn't fix.
+          - ``text_threshold=0.6`` + ``low_text=0.3`` is permissive
+            enough to catch faded card names without flooding us with
+            UI chrome (the confidence filter at the call site drops
+            noise below ``min_confidence``).
+          - ``mag_ratio=1.5`` magnifies small fonts — important because
+            Arena/MTGO render card names at ~16-20px before scaling.
+          - ``canvas_size=2560`` lets us keep 4K screenshots intact
+            without forcing a downscale that kills card-name legibility.
     """
     # Get reader (will wait for model download if needed)
     reader = get_reader()
@@ -63,14 +78,59 @@ def run_easyocr(img: np.ndarray, min_confidence: float = 0.3):
     else:
         img_rgb = img
 
-    results = reader.readtext(img_rgb, detail=1, paragraph=False)
+    # EasyOCR readtext knobs tuned for MTG deck-list layouts:
+    #   - ``link_threshold=0.2`` (default 0.4) merges characters across
+    #     larger horizontal gaps. Critical for MTGA/MTGO tabular shots
+    #     where the quantity column and the card-name column are
+    #     separated by a visible gap — with the default, EasyOCR emits
+    #     ``"4"`` and ``"Lightning Bolt"`` as two disjoint spans and
+    #     our regex parser in main.py drops both.
+    #   - ``add_margin=0.2`` (default 0.1) enlarges each detection box
+    #     so adjacent boxes overlap and get merged during linking.
+    #   - ``contrast_ths=0.1`` + ``adjust_contrast=0.5`` — lifts dark
+    #     MTGO screenshots before recognition.
+    #   - ``mag_ratio=1.5`` + ``canvas_size=2560`` — Arena renders card
+    #     names at ~16-20 px; magnifying once inside EasyOCR is cheaper
+    #     than re-running super-resolution.
+    results = reader.readtext(
+        img_rgb,
+        detail=1,
+        paragraph=False,
+        contrast_ths=0.1,
+        adjust_contrast=0.5,
+        text_threshold=0.6,
+        low_text=0.3,
+        link_threshold=0.2,
+        add_margin=0.2,
+        # mag_ratio kept at default 1.0 — the preprocess_variants
+        # pipeline already upscales to ~1500 px tall and runs
+        # super-res when needed, so doubling that inside EasyOCR
+        # just burns CPU without adding signal.
+        mag_ratio=1.0,
+        canvas_size=2560,
+    )
 
-    # Filter by confidence (from reference project)
-    # Lower threshold (0.3) keeps more potential cards rather than missing them
+    # Filter by confidence (from reference project). Lower threshold
+    # (0.3) keeps more potential cards rather than missing them.
+    # We also keep the 4-corner bbox EasyOCR returns so the downstream
+    # parser can do spatial pairing (qty column ↔ name column on MTGA
+    # visual layouts).
     spans = []
-    for *_, text, conf in results:
+    for result in results:
+        # EasyOCR result shape: (bbox, text, conf) where bbox is a list
+        # of 4 [x, y] corner points. The ``*_`` destructure earlier
+        # discarded that geometry — we need it now.
+        bbox = result[0]
+        text = result[1]
+        conf = result[2]
         if conf >= min_confidence:
-            spans.append({"text": text, "conf": float(conf)})
+            spans.append(
+                {
+                    "text": text,
+                    "conf": float(conf),
+                    "bbox": [[float(x), float(y)] for x, y in bbox],
+                }
+            )
 
     # Calculate mean confidence only from filtered spans
     mean_conf = (

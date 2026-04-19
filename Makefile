@@ -149,6 +149,20 @@ bench-truth: artifacts ## Run independent benchmark for truth metrics
 			--url http://localhost:8080
 	@echo "✅ Truth benchmark saved to reports/truth_bench.json"
 
+.PHONY: bench-ocr-only
+bench-ocr-only: artifacts ## Run OCR-only validation (EasyOCR + OpenCV only, zero AI calls) against validation_set/images
+	@echo "🔍 Running OCR-only validation (AI disabled)..."
+	@echo "   NB: requires the backend to be up with ENABLE_VISION_FALLBACK=false."
+	@echo "   Start it with: ENABLE_VISION_FALLBACK=false docker compose up -d --force-recreate backend"
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && \
+		pip install -q requests && \
+		python tools/ocr_only_bench.py \
+			--images $(VALIDATION_SET) \
+			--truth  $(TRUTH) \
+			--out    $(REPORT)/ocr_only \
+			--url    http://localhost:8080
+	@echo "✅ OCR-only report saved to $(REPORT)/ocr_only/validation.{json,md}"
+
 .PHONY: bench-compare
 bench-compare: ## Compare official vs truth benchmarks
 	@echo "📊 Comparing benchmarks..."

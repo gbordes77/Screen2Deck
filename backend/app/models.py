@@ -5,6 +5,14 @@ from typing import List, Optional, Literal
 class OCRSpan(BaseModel):
     text: str
     conf: float
+    # EasyOCR ``readtext(detail=1)`` returns a 4-corner polygon per
+    # span. We keep it as ``[[x, y], [x, y], [x, y], [x, y]]`` so the
+    # spatial parser in ``main.py::parse_deck_sections`` can pair a
+    # right-column quantity span (e.g. ``"x2"``) with the left-column
+    # card-name span that sits on the same row. ``None`` when the
+    # spans are synthesised (e.g. by the Vision-LLM fallback, which
+    # already returns a structured deck and has no OCR geometry).
+    bbox: Optional[List[List[float]]] = None
 
 
 class RawOCR(BaseModel):

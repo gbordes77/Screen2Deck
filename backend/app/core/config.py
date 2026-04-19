@@ -55,10 +55,10 @@ class Settings(BaseSettings):
     REDIS_POOL_SIZE: int = Field(10, env="REDIS_POOL_SIZE")
 
     # OCR
-    # ENABLE_VISION_FALLBACK default is True to match the canonical
-    # docker-compose.yml wiring — the Vision LLM path is the feature
-    # users see, not an opt-in. Runtime still falls through to EasyOCR
-    # when no Vision provider is configured.
+    # ENABLE_VISION_FALLBACK default is True so Vision LLM stays wired
+    # as an opt-in safety net on low-confidence scans, but the primary
+    # path is EasyOCR + OpenCV. MTG community feedback: players prefer
+    # deterministic, non-AI OCR — AI is a backup, not the default route.
     ENABLE_VISION_FALLBACK: bool = Field(True, env="ENABLE_VISION_FALLBACK")
     ENABLE_SUPERRES: bool = Field(False, env="ENABLE_SUPERRES")
     OCR_MIN_CONF: float = Field(0.62, env="OCR_MIN_CONF", ge=0.0, le=1.0)
@@ -93,13 +93,13 @@ class Settings(BaseSettings):
     GEMINI_MODEL: str = Field("gemini-2.5-flash", env="GEMINI_MODEL")
     ANTHROPIC_API_KEY: Optional[str] = Field(None, env="ANTHROPIC_API_KEY")
     ANTHROPIC_MODEL: str = Field("claude-haiku-4-5", env="ANTHROPIC_MODEL")
-    # When true and ENABLE_VISION_FALLBACK is also true, Vision LLM
-    # with structured JSON output is the primary OCR path (EasyOCR
-    # becomes the fallback). Default True matches the canonical
-    # docker-compose.yml wiring added in commit 009e02b — the
-    # v2.4.0 feature is ON out of the box, and operators without a
-    # Gemini key fall back to EasyOCR transparently.
-    VISION_PRIMARY: bool = Field(True, env="VISION_PRIMARY")
+    # When true AND ENABLE_VISION_FALLBACK is also true, Vision LLM
+    # with structured JSON output is the primary OCR path. Default is
+    # now **False**: EasyOCR + OpenCV preprocessing is the primary
+    # path, Vision LLM only runs as low-confidence fallback. Operators
+    # who trust the LLM path can still opt in by setting
+    # ``VISION_PRIMARY=true``.
+    VISION_PRIMARY: bool = Field(False, env="VISION_PRIMARY")
 
     # Monitoring
     ENABLE_METRICS: bool = Field(True, env="ENABLE_METRICS")

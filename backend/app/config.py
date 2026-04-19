@@ -20,10 +20,11 @@ class Settings:
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
     # OCR & fallbacks
-    # Default True to match ``core/config.py`` and the canonical
-    # docker-compose.yml wiring. Vision LLM is the v2.4.0 feature
-    # operators see; runtime falls through to EasyOCR when no
-    # provider is configured.
+    # ENABLE_VISION_FALLBACK gates the Vision LLM path entirely. Default
+    # True so an operator with a GEMINI/ANTHROPIC key still gets a safety
+    # net on low-confidence scans, but the primary path is EasyOCR +
+    # OpenCV. The MTG community prefers deterministic, non-AI OCR; AI is
+    # opt-in backup, not the default route.
     ENABLE_VISION_FALLBACK: bool = (
         os.getenv("ENABLE_VISION_FALLBACK", "true").lower() == "true"
     )
@@ -53,11 +54,13 @@ class Settings:
     GEMINI_MODEL: str = os.getenv("GEMINI_MODEL", "gemini-2.5-flash")
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
     ANTHROPIC_MODEL: str = os.getenv("ANTHROPIC_MODEL", "claude-haiku-4-5")
-    # When true and ENABLE_VISION_FALLBACK is also true, the pipeline
-    # tries Vision LLM FIRST (with structured JSON output) and falls
-    # back to EasyOCR on failure. Default True matches docker-compose
-    # wiring added in commit 009e02b.
-    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "true").lower() == "true"
+    # When true AND ENABLE_VISION_FALLBACK is also true, the pipeline
+    # tries Vision LLM FIRST and falls back to EasyOCR on failure.
+    # Default is now **False**: EasyOCR + OpenCV preprocessing is the
+    # primary path, Vision LLM only kicks in when confidence drops
+    # below OCR_MIN_CONF. MTG community feedback drove this flip —
+    # players want transparent, non-AI image recognition by default.
+    VISION_PRIMARY: bool = os.getenv("VISION_PRIMARY", "false").lower() == "true"
 
     # Scryfall check (toujours)
     ALWAYS_VERIFY_SCRYFALL: bool = (

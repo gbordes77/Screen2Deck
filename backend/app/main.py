@@ -362,8 +362,19 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
 
         # -------- EasyOCR fallback / legacy path --------
         if parsed is None:
-            variants = preprocess_variants(img)
-            ocr_raw = run_easyocr_best_of(variants)
+            # Both ``preprocess_variants`` (OpenCV) and
+            # ``run_easyocr_best_of`` (PyTorch) are CPU-bound and
+            # historically ran inline on the event loop, blocking every
+            # other request — including ``/health`` — for the full
+            # duration of the OCR pass. Ship them off to a worker
+            # thread so concurrent uploads and health checks keep
+            # flowing while a scan is in flight.
+            def _cpu_bound_ocr():
+                vars_ = preprocess_variants(img)
+                raw_ = run_easyocr_best_of(vars_)
+                return vars_, raw_
+
+            variants, ocr_raw = await asyncio.to_thread(_cpu_bound_ocr)
 
             await job_storage.update_job(job_id, progress=40)
 
@@ -379,12 +390,15 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
                         else im
                     ),
                 )
-                ocr_raw = run_vision_fallback(best_img)
+                ocr_raw = await asyncio.to_thread(run_vision_fallback, best_img)
                 ocr_method = "vision_fallback_text"
 
             await job_storage.update_job(job_id, progress=60)
 
-            spans = [OCRSpan(text=s["text"], conf=s["conf"]) for s in ocr_raw["spans"]]
+            spans = [
+                OCRSpan(text=s["text"], conf=s["conf"], bbox=s.get("bbox"))
+                for s in ocr_raw["spans"]
+            ]
             raw = RawOCR(spans=spans, mean_conf=ocr_raw["mean_conf"])
             parsed = parse_deck_sections(spans)
 
@@ -416,46 +430,231 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         )
 
 
-def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
+_QTY_TOKEN_RX = re.compile(r"^\s*[xX]?\s*(\d{1,2})\s*[xX]?\s*$")
+_INLINE_QTY_RX = re.compile(r"^\s*(\d{1,2}|[xX]\d{1,2})\s+(.+?)\s*$")
+
+# UI chrome strings that Arena / MTGO / mtggoldfish render next to deck
+# lists. These are NOT card names — filtering them out stops the parser
+# from emitting bogus entries like ``40x "700"`` (from the ``60/60
+# Cards`` stats label) or ``15x "Cards"`` (from the sideboard header).
+_UI_CHROME_RX = re.compile(
+    r"^\s*("
+    r"\d+\s*/\s*\d+"                     # 60/60, 15/15, …
+    r"|\d+\s*cards?"                      # "60 Cards", "15 Cards"
+    r"|cards?|deck|sideboard|mainboard"   # bare UI labels
+    r"|collection|library|graveyard|hand"
+    r"|commander|companion|maybe(board)?"
+    r"|remove|add|close|save|export|edit"
+    r"|creatures?|lands?|spells?|planes?walkers?|artifacts?|enchantments?"
+    r"|search|filter|sort|price|total"
+    r"|\d+%|~\d+|\d+\s*mana"
+    r")\s*$",
+    re.IGNORECASE,
+)
+
+# Known Scryfall names (hydrated at startup) that we intentionally never
+# blocklist — e.g. "Forest", "Creature — Beast". We only apply the chrome
+# filter to strings that *also* look like UI noise; real card names like
+# "Forest" go through untouched because ``_UI_CHROME_RX`` doesn't match
+# anything that isn't in its closed list.
+
+
+def _looks_like_ui_chrome(text: str) -> bool:
+    return bool(_UI_CHROME_RX.match(text.strip()))
+
+
+def _span_center_y(span: OCRSpan) -> Optional[float]:
+    if not span.bbox:
+        return None
+    ys = [pt[1] for pt in span.bbox]
+    return sum(ys) / len(ys) if ys else None
+
+
+def _span_left_x(span: OCRSpan) -> Optional[float]:
+    if not span.bbox:
+        return None
+    xs = [pt[0] for pt in span.bbox]
+    return min(xs) if xs else None
+
+
+def _span_height(span: OCRSpan) -> float:
+    if not span.bbox:
+        return 0.0
+    ys = [pt[1] for pt in span.bbox]
+    return max(ys) - min(ys) if ys else 0.0
+
+
+def _match_qty_token(text: str) -> Optional[int]:
+    """Return the integer quantity when ``text`` is a pure qty token.
+
+    Matches ``"4"``, ``"x2"``, ``"X3"``, ``" 4x "`` — anything that is
+    *only* a small integer with an optional ``x`` prefix/suffix. Returns
+    None for text that also carries a card name.
     """
-    Parse OCR spans into deck sections.
+    m = _QTY_TOKEN_RX.match(text)
+    if not m:
+        return None
+    qty = int(m.group(1))
+    if 1 <= qty <= 99:
+        return qty
+    return None
+
+
+def _strip_leading_ui_noise(name: str) -> str:
+    """Drop UI characters that EasyOCR picks up from MTGA card frames.
+
+    Arena overlays brackets / parentheses / pipe glyphs on card tiles.
+    The regex below trims any stray leading punctuation so the Scryfall
+    fuzzy matcher gets a clean starting token.
+    """
+    return re.sub(r"^[\s\(\[\{\|\.\,\:\;\-]+", "", name).strip()
+
+
+def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
+    """Parse OCR spans into deck sections.
+
+    Two layouts coexist in the wild and we handle both:
+
+    1. **Inline / text-export layout** (MTGO exports, mtggoldfish text
+       dumps, and MTGA's "Export deck" clipboard format): each OCR span
+       already reads ``"4 Lightning Bolt"``. We match via
+       ``_INLINE_QTY_RX`` on the span text — this is the legacy
+       behaviour and stays fast.
+
+    2. **Visual / column-separated layout** (the actual Arena deck
+       builder UI — what the MTG community screenshots the most): the
+       quantity and the card name are in *different columns*, so
+       EasyOCR emits them as two separate spans. We fall back to a
+       **spatial parser** that pairs each standalone ``"x2"`` / ``"3"``
+       qty span with the closest-by-y card-name span on the same row.
+
+    The spatial parser only activates when the inline pass yields too
+    few cards — that way clean text exports don't pay its cost.
     """
     main_entries: list[CardEntry] = []
     side_entries: list[CardEntry] = []
     section = "main"
 
-    for span in spans:
+    # --- Pass 1: inline "<qty> <name>" parsing (legacy behaviour) ---
+    consumed_span_ids: set[int] = set()
+    for idx, span in enumerate(spans):
         line = span.text.strip()
-
-        # Check for sideboard marker
+        if not line:
+            continue
         if line.lower().startswith("sideboard") or line.lower().startswith("sb"):
             section = "side"
+            consumed_span_ids.add(idx)
             continue
+        # Drop pure UI chrome lines before we try to parse a qty out of
+        # them. Things like ``"60/60 Cards"`` or ``"15 Cards"`` would
+        # otherwise feed the regex and produce bogus entries.
+        if _looks_like_ui_chrome(line):
+            consumed_span_ids.add(idx)
+            continue
+        m = _INLINE_QTY_RX.match(line)
+        if m:
+            qty_raw = m.group(1)
+            name = m.group(2)
+            qty = int(qty_raw.lstrip("xX")) if qty_raw else 0
+            if qty <= 0:
+                continue
+            clean_name = _strip_leading_ui_noise(name)
+            clean_name = text_validator.sanitize_card_name(clean_name)
+            if not clean_name or _looks_like_ui_chrome(clean_name):
+                continue
+            entry = CardEntry(qty=qty, name=clean_name)
+            (main_entries if section == "main" else side_entries).append(entry)
+            consumed_span_ids.add(idx)
 
-        # Parse quantity and name
-        qty = 0
-        name = ""
-        parts = line.split(" ", 1)
-
-        if len(parts) == 2:
-            if parts[0].isdigit():
-                qty = int(parts[0])
-                name = parts[1]
-            elif parts[0].lower().endswith("x") and parts[0][:-1].isdigit():
-                qty = int(parts[0][:-1])
-                name = parts[1]
-
-        if qty > 0 and name:
-            # Sanitize card name
-            name = text_validator.sanitize_card_name(name)
-            entry = CardEntry(qty=qty, name=name)
-
-            if section == "main":
-                main_entries.append(entry)
-            else:
-                side_entries.append(entry)
+    # --- Pass 2: spatial pairing for MTGA visual layouts ---
+    # If the inline pass captured fewer than 10 cards AND bboxes are
+    # available, attempt to pair qty-only spans with name-only spans
+    # by vertical alignment.
+    if (len(main_entries) + len(side_entries)) < 10 and any(
+        s.bbox for s in spans
+    ):
+        paired = _spatial_pair(
+            [s for i, s in enumerate(spans) if i not in consumed_span_ids]
+        )
+        # Insert paired entries respecting the most-recently-seen
+        # "Sideboard" marker. The spatial pass resets section to
+        # "main" since it doesn't know about markers; we keep that
+        # simple — the validator will redistribute 60+15 afterwards.
+        main_entries.extend(e for e in paired if e.qty > 0)
 
     return DeckSections(main=main_entries, side=side_entries)
+
+
+def _spatial_pair(spans: list[OCRSpan]) -> list[CardEntry]:
+    """Pair standalone qty spans with the nearest card-name span.
+
+    Strategy:
+        * Bucket every span with a bbox into rows by center-y. Row
+          tolerance is derived from the median span height so it
+          adapts to resolution.
+        * Within a row, the left-most readable text span is the
+          candidate card name, and any ``"x?<n>"``-shaped span is the
+          quantity. When a row has one qty and one or more name spans,
+          emit a ``CardEntry``.
+        * Rows with no detected qty or no readable name are dropped.
+
+    This approximates what the human eye does when scanning the Arena
+    deck-builder: "this number belongs to that card because they share
+    a horizontal line."
+    """
+    usable = [s for s in spans if s.bbox and _span_center_y(s) is not None]
+    if not usable:
+        return []
+
+    # Row tolerance = 0.6 × median span height (empirically ~12-18 px
+    # on a 1080p Arena screenshot).
+    heights = sorted(h for h in (_span_height(s) for s in usable) if h > 0)
+    row_tol = heights[len(heights) // 2] * 0.6 if heights else 12.0
+
+    # Sort spans top-down, then cluster into rows.
+    usable_sorted = sorted(usable, key=lambda s: _span_center_y(s) or 0.0)
+    rows: list[list[OCRSpan]] = []
+    for span in usable_sorted:
+        cy = _span_center_y(span) or 0.0
+        if rows and abs(cy - (_span_center_y(rows[-1][0]) or 0.0)) <= row_tol:
+            rows[-1].append(span)
+        else:
+            rows.append([span])
+
+    entries: list[CardEntry] = []
+    for row in rows:
+        qty = None
+        name_candidates: list[OCRSpan] = []
+        for s in row:
+            text = s.text.strip()
+            if _looks_like_ui_chrome(text):
+                continue
+            as_qty = _match_qty_token(text)
+            if as_qty is not None:
+                qty = as_qty
+                continue
+            # Ignore obvious noise (pure punctuation, very short strings
+            # that are neither qty nor a word).
+            if len(re.sub(r"[^a-zA-Z]", "", text)) < 3:
+                continue
+            name_candidates.append(s)
+
+        if qty is None or not name_candidates:
+            continue
+
+        # Pick the left-most name candidate as the card name — MTGA and
+        # MTGO both render the name flush-left while the qty sits
+        # further right on the same row.
+        name_span = min(
+            name_candidates,
+            key=lambda s: _span_left_x(s) if _span_left_x(s) is not None else 1e9,
+        )
+        raw_name = _strip_leading_ui_noise(name_span.text)
+        clean_name = text_validator.sanitize_card_name(raw_name)
+        if not clean_name or _looks_like_ui_chrome(clean_name):
+            continue
+        entries.append(CardEntry(qty=qty, name=clean_name))
+    return entries
 
 
 async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:

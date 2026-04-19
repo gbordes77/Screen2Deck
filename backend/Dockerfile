@@ -58,8 +58,12 @@ RUN pip install --user --no-cache-dir -r requirements.txt
 COPY --chown=screen2deck:screen2deck app ./app
 COPY --chown=screen2deck:screen2deck scripts ./scripts
 
-# Create data directory for Scryfall cache
-RUN mkdir -p ./app/data
+# Create data directory for Scryfall cache + EasyOCR model cache.
+# The EasyOCR directory (~/.EasyOCR) is targeted by the docker-compose
+# named volume so models aren't redownloaded across rebuilds. Creating
+# it here pre-chowns it to the screen2deck user so the runtime can
+# actually write the downloaded weights.
+RUN mkdir -p ./app/data /app/.EasyOCR/model /app/.EasyOCR/user_network
 
 # Expose port (non-privileged)
 EXPOSE 8080
@@ -76,6 +80,10 @@ USER screen2deck
 # starts fine without the bulk file — main.py lifespan logs "skipping
 # hydration" and falls back to online Scryfall API calls.
 CMD bash -lc '\
+  # Docker named volumes always mount as root-owned. The screen2deck
+  # user running the app cannot write to the mount point without this
+  # fallback mkdir (which is a no-op when perms are already correct).
+  mkdir -p /app/.EasyOCR/model /app/.EasyOCR/user_network 2>/dev/null || true; \
   if [ "$SKIP_SCRYFALL_DOWNLOAD" != "true" ] && [ ! -f ./app/data/scryfall-default-cards.json ]; then \
     python scripts/download_scryfall.py || echo "Scryfall download failed — continuing without bulk cache"; \
   fi; \

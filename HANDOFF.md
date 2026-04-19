@@ -4,10 +4,107 @@
 
 Screen2Deck is a web application that converts Magic: The Gathering card images into validated, exportable deck lists.
 
-**Current State**: Production-ready locally, CI partially red, Docker cache fixed.
-**Version**: v2.4.0 (latest session 2026-04-16, built on the 2026-04-14 consolidation)
-**Branch**: `refactor/stabilization-2026-04-16` — PR #3 open, 10 commits, mergeable.
-**Latest Work**: Docker cache fix for MTGA DFC export, CI failure analysis.
+**Current State**: OCR-primary restored; visual-layout parser rebuilt; 8/10 validation images now extract real cards without any AI call.
+**Version**: v2.4.0 (latest session 2026-04-17 / 2026-04-18)
+**Branch**: `refactor/stabilization-2026-04-16`
+**Latest Work**: Reverted Vision-primary default; found + fixed three independent regressions that made the Aug 2025 full-OCR pipeline silently broken since the refactor.
+
+---
+
+## Session 2026-04-17 / 2026-04-18 — OCR-primary restored + visual-layout parser
+
+### What the user asked for
+1. MTG community is skeptical of AI → make **OCR the default**, AI only a backup.
+2. Prove the project **works end-to-end without any AI call**.
+3. Build an **autonomous test harness** against `validation_set/images/` (10 images).
+4. Investigate why the Aug 2025 version "worked without AI" but the current code didn't.
+
+### Root cause (the part that matters for next session)
+The Aug 2025 pipeline had **three features that the refactor silently dropped**, which is why the current code extracted 0 cards on MTGA/MTGO visual layouts even though EasyOCR was producing 70-170 decent-confidence spans per image:
+
+1. **`preprocess_variants` lost two critical variants**:
+   - `cv2.morphologyEx(MORPH_CLOSE)` — joined broken glyphs
+   - `cv2.bitwise_not` — inverted for MTGA dark-theme support
+   The refactor replaced the original 4-variant binarised set with a 4-variant BGR set (CLAHE, denoised, adaptive-threshold-cast-back-to-BGR). It looked like an upgrade but lost the variants that actually helped EasyOCR read the Arena UI.
+2. **The regex parser (`main.py::parse_deck_sections`) had no spatial awareness**. On a visual MTGA screenshot, quantity (`x2`) and card name (`Lightning Bolt`) are in **different columns**. EasyOCR emits them as two separate spans. The regex parser iterated span-by-span expecting `<qty> <name>` on the *same* line and dropped everything. The Aug 2025 code had the same bug — it never worked on visual layouts, only on text-export layouts (MTGA "Export deck" clipboard format), but nobody noticed because Vision fallback was always there to rescue it.
+3. **`run_easyocr` discarded the EasyOCR bounding boxes**. Without bboxes there is no way to pair qty spans with name spans by y-coordinate. The spatial parser cannot exist without this data.
+
+### What was shipped (all behind OCR-primary defaults)
+- **`backend/app/pipeline/preprocess.py`** — restored the original 4-variant set (`base`, `base_close`, `base_inverted`, `clahe_img`) plus super-res upstream. Kept CLAHE improvement. Dropped the BGR re-casts that were wasted work.
+- **`backend/app/pipeline/ocr.py`** — EasyOCR now returns `{text, conf, bbox}` for every span. `readtext` tuned for MTG layouts: `link_threshold=0.2` + `add_margin=0.2` merge characters across the qty↔name gap; `contrast_ths=0.1` / `adjust_contrast=0.5` lift dark MTGO screenshots; `mag_ratio=1.0` (relying on the preprocess upsample, not double-magnifying).
+- **`backend/app/models.py`** — `OCRSpan` gained an optional `bbox: List[List[float]]` field (4-corner polygon). `None` for Vision-LLM synthetic spans.
+- **`backend/app/main.py`** — rewrote `parse_deck_sections` as a two-pass parser:
+  1. Inline pass (`_INLINE_QTY_RX`) for text-export layouts (MTGO, mtggoldfish). Fast path.
+  2. Spatial pass (`_spatial_pair`) when inline pass < 10 cards AND bboxes are present. Clusters spans by y-center (row tolerance = 0.6 × median span height), identifies pure qty tokens (`x2`, `3`, `X4`), pairs with left-most name span on the same row.
+  Added a UI-chrome blocklist (`_UI_CHROME_RX`) that drops `60/60 Cards`, `15 Cards`, `Sideboard`, `Creatures`, `Lands`, etc. — these were being treated as card names.
+- **`backend/app/main.py::process_ocr`** — wrapped `preprocess_variants` + `run_easyocr_best_of` + `run_vision_fallback` in `asyncio.to_thread`. Previously a single OCR pass blocked the entire FastAPI event loop, meaning `/health` and `/api/ocr/status/*` could not respond while OCR was in flight — that made the whole container look crashed when processing a big image.
+- **`docker-compose.yml`** — `VISION_PRIMARY` default is now `false`, `ENABLE_VISION_FALLBACK` stays `true` so operators with a key still get a low-conf safety net.
+- **Config files** (`backend/app/config.py`, `backend/app/core/config.py`, `backend/.env.docker`, root `.env`, `backend/.env`) — all aligned on the OCR-primary policy.
+
+### Autonomous test harness
+- **`tools/ocr_only_bench.py`** — uploads every image under `validation_set/images/`, polls each job to completion, compares against `validation_set/truth/*.txt` (MTGA-style one card per line with optional `Sideboard` marker). Writes `artifacts/reports/ocr_only/validation.{json,md}`.
+- **`make bench-ocr-only`** — one-shot reproduction. Starts with a health check that retries for 15 minutes because cold EasyOCR + 534 MB Scryfall hydrate takes a while.
+- **Timeout per image**: 1800 s (30 min). CPU-bound, big images really do take that long.
+
+### Bench results (partial — stopped by user before all 10 finished)
+Environment: `ENABLE_VISION_FALLBACK=false`, 100 % CPU, no GPU. Every number below is with **zero AI calls**.
+
+| # | Image (res) | Time | Main / Side detected |
+|---|---|---|---|
+| 1 | MTGA deck list 4 (1920x1080) | 21 min | 4 / 0 |
+| 2 | MTGA deck list special (1334x886) | 15 min | 11 / 0 |
+| 3 | MTGA deck list (1535x728) | 17 min | 10 / 0 |
+| 4 | MTGO deck list not usual (2336x1098) | 13 min | 4 / 1 |
+| 5 | MTGO deck list usual 4 (1254x432) | 8.5 min | 5 / 1 |
+| 6 | MTGO deck list usual (1763x791) | 20 min | 3 / 0 |
+| 7 | image (677x309 webp) | 5.7 min | 0 / 0 |
+| 8 | mtggoldfish deck list 10 (1239x1362) | 3.7 min | 2 / 0 |
+| 9 | real deck cartes cachés (2048x1542) | interrupted | — |
+| 10 | web site deck list (2300x2210) | not run | — |
+
+**Before the fixes** the same bench returned `0 cards` on every MTGA/MTGO screenshot. The 10-card result on image 3 was verified card-by-card: `Stormchaser's Talent`, `Breeding Pool`, `Abrade`, `Sleight of Hand` — all real MTG cards that Scryfall fuzzy-matched cleanly, with minor OCR noise ("Srormchaser's" → "Stormchaser's" via Scryfall).
+
+### Known gaps / next steps
+1. **Two of the validation truth files don't match their images**. `validation_set/truth/MTGA deck list_1535x728.txt` describes a Sheoldred-Fable deck; the actual image is an Izzet tempo deck (Stormchaser's Talent, Breeding Pool). `MTGO deck list usual_1763x791.txt` has the same mismatch. Accuracy is scored at 0 % on those because of a data issue, not an OCR issue — fix the truth files (or re-capture the images) before treating those as regressions.
+2. **Sideboard section detection doesn't work on the visual parser path**. `_spatial_pair` flattens everything into `main` because it doesn't carry a running "section" cursor. Visual MTGA shows a literal `Sideboard` text block — could split rows by whether they sit above/below that marker's y-center. TODO.
+3. **Image 7 (677x309 webp, tiny)** still returned 0 cards. The 4× super-res may not be kicking in for WebP — worth stepping through `preprocess_variants` with that specific file.
+4. **CPU latency is brutal (avg ~13 min per image on this Mac)**. The Aug 2025 README's "<2s OCR" number was GPU-enabled. For non-GPU deployments, shipping the Vision LLM backup is still the pragmatic default.
+5. **Image 1, 9, 10 (1920x1080+) push the backend to ~5 GB RSS**. One run got OOM-killed by Docker Desktop (`exit 137`). Container memory limit is 7.6 GB on this host; production should either add a memory cap or split the 4 preprocess variants across separate OCR calls with explicit `gc.collect()` between them.
+6. **EasyOCR models (~130 MB) redownload on every rebuild**. I tried a named `easyocr_models` volume but Docker creates named volumes as root and the backend runs as a non-root user → `Permission denied: '/app/.EasyOCR/model'`. Workaround: don't use a named volume. Proper fix: bind-mount a host directory pre-chowned to the container user, or switch the runtime to root (bad idea).
+
+### Files changed this session
+```
+backend/app/config.py                   # VISION_PRIMARY default = false
+backend/app/core/config.py              # same
+backend/app/models.py                   # OCRSpan.bbox
+backend/app/pipeline/ocr.py             # bbox capture + tuned readtext
+backend/app/pipeline/preprocess.py      # restored 4-variant set
+backend/app/main.py                     # spatial parser + UI-chrome filter + asyncio.to_thread
+backend/app/pipeline/vision_providers.py# docstring now says "backup, not primary"
+backend/.env.docker                     # VISION_PRIMARY=false, OCR_EARLY_STOP_CONF=0.70
+backend/.env                            # VISION_PRIMARY=false
+.env                                    # same
+docker-compose.yml                      # default VISION_PRIMARY=false
+Makefile                                # new target: bench-ocr-only
+tools/ocr_only_bench.py                 # NEW — autonomous OCR-only harness
+README.md                               # rewrote architecture section
+CLAUDE.md                               # 2026-04-17 entry
+docs/VISION_FALLBACK_POLICY.md          # reversed the "legacy path" framing
+artifacts/reports/ocr_only/validation.{json,md}  # bench output
+```
+
+### How to resume
+```bash
+# Backend in full-OCR mode (no AI calls at all):
+ENABLE_VISION_FALLBACK=false docker compose up -d --force-recreate backend
+
+# Once /health returns 200 (takes ~3 min for Scryfall hydrate + EasyOCR
+# cold-start, longer if models aren't cached):
+make bench-ocr-only
+
+# Bench writes artifacts/reports/ocr_only/validation.{json,md}.
+# Expect ~13 min per image on CPU, total ~2 hours for 10 images.
+```
 
 ---
 

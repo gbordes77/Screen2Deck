@@ -9,7 +9,9 @@ Transform screenshots of Magic: The Gathering decks into importable deck lists f
 
 ## 🚀 Status: Production Ready (v2.4.0)
 
-Online OCR system with Scryfall API integration for card validation. v2.4.0 adds a Vision-primary pipeline (Gemini 2.5 Flash + Claude Haiku 4.5 fallback) with typed JSON output and batches Scryfall via `/cards/collection`.
+Online OCR system with Scryfall API integration for card validation. v2.4.0 runs **EasyOCR + OpenCV preprocessing as the primary path** and keeps the Vision LLM chain (Gemini 2.5 Flash → Claude Haiku 4.5) as an **opt-in backup** that only fires when EasyOCR confidence drops below `OCR_MIN_CONF`. Scryfall resolution is batched via `/cards/collection`.
+
+> 🙅 **Why OCR-first?** The MTG community asked for a deterministic, non-AI image recognition path they can trust. By default Screen2Deck never calls a multimodal LLM — upload a clean screenshot and the decklist comes back from classical computer vision alone.
 
 ```bash
 # Quick Start - Online Mode
@@ -19,8 +21,9 @@ make up             # Start all services
 
 Features:
 - 🌐 **Always Online**: Direct integration with Scryfall API
-- 🧠 **Vision-primary OCR**: Gemini 2.5 Flash returns typed deck JSON in one call (EasyOCR remains as the fallback when Vision fails)
-- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB) on the fallback path
+- 🔍 **OCR-primary by default**: EasyOCR + OpenCV (CLAHE, denoise, adaptive threshold, super-res, 4-variant best-of) — no AI call on clean scans
+- 🧯 **AI only as backup**: Low-confidence scans (<`OCR_MIN_CONF`) optionally fall back to Gemini/Claude; disabled entirely if no API key is set
+- 📥 **Dynamic Models**: EasyOCR downloads models on demand (~64MB) on first run
 - ⚡ **Real-time Updates**: Always current card database
 - 🚀 **Simplified Deployment**: No pre-baking or offline setup needed
 - ✅ **Validated**: Comprehensive online testing suite
@@ -28,7 +31,8 @@ Features:
 ## ✨ Features
 
 ### Core Functionality
-- **🧠 Vision-primary OCR**: Gemini 2.5 Flash with `response_json_schema` (Claude Haiku 4.5 as secondary fallback); EasyOCR stays wired as the backup when the Vision chain fails ([vision fallback policy](./docs/VISION_FALLBACK_POLICY.md))
+- **🔍 Deterministic OCR primary path**: EasyOCR (beam-friendly thresholds tuned per [context7 docs](https://context7.com/jaidedai/easyocr)) over 4 OpenCV preprocessing variants — CLAHE contrast lift, unsharp-mask + non-local-means denoising, adaptive-threshold binarization, and optional 4× super-resolution for small crops
+- **🧯 Vision LLM as optional backup**: Gemini 2.5 Flash → Claude Haiku 4.5, gated by `ENABLE_VISION_FALLBACK` and only invoked when EasyOCR's mean confidence drops below `OCR_MIN_CONF` ([vision fallback policy](./docs/VISION_FALLBACK_POLICY.md))
 - **📦 Scryfall batch resolution**: `/cards/collection` endpoint (75 cards per request), User-Agent header, async-wrapped client — 60-card decks resolve in ~500 ms instead of ~7 s
 - **🔍 Smart Matching**: Scryfall API validation (85-94% accuracy baseline, ≥85% target)
 - **📤 Multi-Format Export**: MTGA, Moxfield, Archidekt, TappedOut, JSON
@@ -39,8 +43,9 @@ Features:
 - **🌐 Cloud-Native**: Optimized for online deployment
 
 ### Performance targets (see [DISCLAIMER.md](./DISCLAIMER.md) for measured vs projected)
-- **~2.7s** projected P95 latency with `VISION_PRIMARY=true` (was ~4.1s on the legacy EasyOCR-first path — numbers are modelled pending a `make bench-day0` run on v2.4.0)
-- **85-94%** OCR accuracy baseline, +3-5 points qualitative with structured Vision output (projected)
+- **~4.1s** projected P95 latency on the default EasyOCR path (pending a fresh `make bench-day0` run on v2.4.0)
+- **~2.7s** projected P95 latency when operators opt into `VISION_PRIMARY=true` (Gemini structured output)
+- **85-94%** OCR accuracy baseline on EasyOCR + Scryfall fuzzy match; +3-5 points qualitative on the opt-in Vision path (projected)
 - **100+** concurrent users supported in load tests
 - **50-80%** cache hit rate after warm-up
 - **<500MB** memory usage per instance
@@ -75,20 +80,20 @@ make parity        # Web/Discord consistency check
 - PostgreSQL (optional, for user management)
 Note: This project uses EasyOCR exclusively for OCR processing.
 
-## 🏗️ Architecture (v2.4.0 - ONLINE-ONLY + Vision-primary)
+## 🏗️ Architecture (v2.4.0 - ONLINE-ONLY, OCR-primary)
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
 │                    Screen2Deck v2.4.0                       │
-│                  100% ONLINE Architecture                   │
+│       100% ONLINE · OCR-primary · AI is opt-in backup       │
 └─────────────────────────────────────────────────────────────┘
 
 ┌──────────────┐     ┌──────────────┐     ┌──────────────────┐
 │   Frontend   │────▶│   Backend    │────▶│  External APIs   │
 │  (Next.js)   │     │  (FastAPI)   │     │                  │
 │  Port: 3000  │     │  Port: 8080  │     │ • Scryfall API   │
-└──────────────┘     └──────────────┘     │ • Gemini 2.5     │
-                            │              │ • Claude Haiku   │
+└──────────────┘     └──────────────┘     │ • (opt-in) Gemini│
+                            │              │ • (opt-in) Claude│
                             │              └──────────────────┘
                             │                       │
                             ▼                       │
@@ -104,13 +109,18 @@ Note: This project uses EasyOCR exclusively for OCR processing.
                      └──────────────┘     │    ~64MB         │
                                           └──────────────────┘
 
-Data Flow (VISION_PRIMARY=true, default):
+Data Flow (default — VISION_PRIMARY=false):
 1. Upload Image → Frontend → Backend
-2. Backend → Vision chain (Gemini 2.5 Flash → Claude Haiku 4.5) returns typed deck JSON
-3. On Vision failure → EasyOCR fallback path (downloads models on first run, ~64MB)
-4. Batch-validate cards via Scryfall `/cards/collection`
-5. Cache results in Redis (image-hash idempotency)
-6. Return formatted deck list
+2. OpenCV preprocessing → 4 variants (original, CLAHE, denoised+sharpen, adaptive threshold;
+   4× super-res first when width < SUPERRES_MIN_WIDTH)
+3. EasyOCR best-of pass over the 4 variants (early-stop at OCR_EARLY_STOP_CONF)
+4. If mean confidence < OCR_MIN_CONF AND ENABLE_VISION_FALLBACK=true:
+   retry with Vision LLM chain (Gemini 2.5 Flash → Claude Haiku 4.5).
+   If no API key is configured, this step is a no-op and EasyOCR's
+   best-effort result is returned as-is.
+5. Regex parse deck sections → batch-validate via Scryfall /cards/collection
+6. MTGO 60+15 redistribution + Scryfall fuzzy fill-in
+7. Cache results in Redis (image-hash idempotency) → return formatted deck
 ```
 
 ## 🏃 Quick Start
@@ -200,24 +210,23 @@ REDIS_URL=redis://localhost:6379/0
 # CORS (update for your domain)
 CORS_ORIGINS=["http://localhost:3000","https://yourdomain.com"]
 
-# OCR Configuration
-# The tuning knobs below only affect the EasyOCR legacy path; they are
-# ignored once VISION_PRIMARY=true (the v2.4.0 default).
-OCR_MIN_CONF=0.62           # Trigger Vision fallback below this (legacy path)
-OCR_EARLY_STOP_CONF=0.85    # EasyOCR early-stop threshold (legacy path)
-OCR_MIN_SPAN_CONF=0.3       # Min confidence per text span (legacy path)
-OCR_MIN_LINES=10            # Minimum lines for valid OCR (legacy path)
-ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation (both paths)
+# OCR Configuration (primary path — EasyOCR + OpenCV)
+OCR_MIN_CONF=0.62           # Below this, low-confidence fallback kicks in
+OCR_EARLY_STOP_CONF=0.85    # Stop iterating variants once a run scores this
+OCR_MIN_SPAN_CONF=0.3       # Drop OCR spans below this confidence
+OCR_MIN_LINES=10            # Minimum qty-line count for a valid scan
+ALWAYS_VERIFY_SCRYFALL=true # Mandatory Scryfall validation
 
-# Super-Resolution (legacy path only)
-ENABLE_SUPERRES=true        # Enable 4× super-resolution
+# Super-Resolution (triggered on small screenshots)
+ENABLE_SUPERRES=true        # Enable 4× super-resolution on thumbnails
 SUPERRES_MIN_WIDTH=1200     # Trigger super-res below this width
 
-# Vision providers (v2.4.0 — Gemini primary, Claude fallback)
-ENABLE_VISION_FALLBACK=true        # Enable the Vision LLM chain
-VISION_PRIMARY=true                # Route Vision FIRST (Vision-primary fast path)
+# Vision LLM (opt-in backup — only fires when OCR confidence is too low
+# AND ENABLE_VISION_FALLBACK=true AND an API key is set)
+ENABLE_VISION_FALLBACK=true        # Enable the Vision LLM chain as a backup
+VISION_PRIMARY=false               # Leave false to keep OCR as the primary path
 VISION_PROVIDER=gemini,claude      # Chain order — first available wins
-GEMINI_API_KEY=                    # Free tier: https://aistudio.google.com/app/apikey
+GEMINI_API_KEY=                    # Optional — free tier: https://aistudio.google.com/app/apikey
 GEMINI_MODEL=gemini-2.5-flash
 ANTHROPIC_API_KEY=                 # Optional — API access is separate from Claude Pro/Max
 ANTHROPIC_MODEL=claude-haiku-4-5
@@ -387,7 +396,7 @@ python3 tools/parity_check.py --out artifacts/parity
 See [DISCLAIMER.md](./DISCLAIMER.md) for the distinction between verified and projected metrics. Re-run `make smoke && make bench-day0` to produce fresh artifacts under `artifacts/reports/day0/`.
 
 - **OCR Accuracy**: 85-94% fuzzy-match baseline on the validation set
-- **Processing Time**: ~2.7s p95 projected (Vision-primary), ~4.1s legacy EasyOCR path
+- **Processing Time**: ~4.1s p95 projected on the default EasyOCR path, ~2.7s p95 when operators opt into `VISION_PRIMARY=true`
 - **Throughput**: 100+ concurrent users supported in load tests
 - **Cache Hit Rate**: 50-80% after warm-up (image-hash idempotency + Scryfall bulk)
 - **Memory Usage**: <500MB per instance (steady state)
