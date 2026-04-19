@@ -105,21 +105,26 @@ s2d_<32-character-random-string>
 
 ### Configuration
 
-| Endpoint | Unauthenticated | Authenticated | Burst |
-|----------|----------------|---------------|-------|
-| `/api/ocr/upload` | 10/min | 30/min | 3 |
-| `/api/ocr/status` | 60/min | 100/min | 10 |
-| `/api/export/*` | N/A | 30/min | 5 |
+Rate limits are applied per client IP via the optional-auth
+`AuthMiddleware` (`backend/app/core/auth_middleware.py`). They never
+raise 401 on anonymous callers — the middleware only rate-limits —
+and they do not differ by authentication state.
 
-### Implementation
+| Endpoint            | Limit (per IP) | Burst (5s window) |
+|---------------------|----------------|-------------------|
+| `/api/ocr/upload`   | 10 req/min     | 3                 |
+| `/api/ocr/status`   | 60 req/min     | 10                |
+| `/api/export/*`     | 20 req/min     | 5                 |
+| `/api/auth/api-key` | authenticated only; no extra limit |
 
-```python
-# Memory-efficient rate limiting
-- Per-IP tracking
-- Sliding window algorithm
-- Automatic cleanup (>1000 IPs)
-- Redis backend for distributed systems
-```
+### Implementation notes
+
+- In-memory sliding-window counter with a 5-minute GC sweep.
+- Single-process scope: the counter is per uvicorn worker, not per
+  cluster. A follow-up PR is planned to move the counter into Redis so
+  the limits hold across `--workers N` and replica counts.
+- Rate-limit 429s are raised before the auth parser runs, so they
+  apply even without a valid token.
 
 ## Security Headers
 

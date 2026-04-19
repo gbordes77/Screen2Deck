@@ -1,16 +1,16 @@
 # Screen2Deck Documentation
 
-Welcome to the **Screen2Deck** documentation - your advanced OCR system for Magic: The Gathering cards.
+Welcome to the **Screen2Deck** documentation — your online OCR system for Magic: The Gathering decklists.
 
-## 🎯 What is Screen2Deck?
+## What is Screen2Deck?
 
-Screen2Deck transforms images of Magic: The Gathering cards into validated, exportable decklists using advanced OCR technology. Unlike other solutions, we provide:
+Screen2Deck transforms images of Magic: The Gathering decks into validated, exportable decklists. v2.4.0 routes every upload through a Vision-primary chain (Gemini 2.5 Flash → Claude Haiku 4.5) with typed JSON output, keeps EasyOCR as the fallback, and batches card validation via the Scryfall `/cards/collection` endpoint.
 
-- **Realistic Performance**: 94% accuracy, 3.25s P95 latency (not marketing claims)
+- **Realistic Performance**: 85-94% accuracy baseline, ~2.7s p95 projected with Vision-primary (see [DISCLAIMER.md](../DISCLAIMER.md) for verified vs projected)
 - **Multiple Export Formats**: MTGA, Moxfield, Archidekt, TappedOut
-- **100% Offline Capable**: Works without external API calls
-- **MTG-Specific Handling**: DFC, Split, Adventure cards support
-- **Reproducible Proofs**: Public benchmarks and test results
+- **Online-only (v2.3.0+)**: Scryfall + Gemini/Claude are required; EasyOCR models download on first fallback use
+- **MTG-Specific Handling**: DFC, Split, Adventure cards
+- **Reproducible Proofs**: public benchmarks and test results under `artifacts/reports/`
 
 ## 🚀 Quick Demo
 
@@ -23,23 +23,29 @@ make demo-local
 # Open http://localhost:8088
 ```
 
-## 📊 Real Metrics (Not Marketing)
+## Performance targets
 
-| Metric | Target | Actual | Status |
-|--------|--------|---------|--------|
-| **Accuracy** | ≥92% | **94%** | ✅ PASS |
-| **P95 Latency** | ≤5s | **3.25s** | ✅ PASS |
-| **Cache Hit** | ≥80% | **82%** | ✅ PASS |
+| Metric | Target | v2.4.0 status |
+|--------|--------|---------------|
+| **Accuracy** | ≥85% fuzzy match | 85-94% baseline; +3-5 pts projected on Vision-primary |
+| **P95 Latency** | ≤5s | ~2.7s projected (Vision-primary), ~4.1s legacy EasyOCR |
+| **Cache Hit** | ≥50% | 50-80% after warm-up |
 
-## 🏗️ Architecture
+Numbers are pending a fresh end-to-end benchmark on `main`. Re-run `make smoke && make bench-day0` to produce verified artifacts.
+
+## Architecture (Vision-primary default)
 
 ```mermaid
 graph LR
-    A[Image Upload] --> B[Preprocessing]
-    B --> C[EasyOCR]
-    C --> D[Card Matching]
-    D --> E[Scryfall Validation]
-    E --> F[Export Generation]
+    A[Image Upload] --> B{VISION_PRIMARY?}
+    B -->|yes| C[Gemini 2.5 Flash<br/>typed JSON]
+    C -->|failure| D[Claude Haiku 4.5<br/>typed JSON]
+    D -->|failure| E[EasyOCR fallback]
+    B -->|no| E
+    C --> F[Scryfall /cards/collection]
+    D --> F
+    E --> F
+    F --> G[Export MTGA/Moxfield/Archidekt/TappedOut]
 ```
 
 ## 🧪 Comprehensive Testing
@@ -59,12 +65,12 @@ All formats are validated against golden files:
 - **Archidekt**: Advanced deck analysis
 - **TappedOut**: Community sharing format
 
-## 🔒 Security & Privacy
+## Security & Privacy
 
-- **100% Local Processing**: No data leaves your machine
-- **No Telemetry**: Zero tracking or analytics
-- **Open Source**: Full code transparency
-- **Docker Isolated**: Containerized for security
+- **External APIs disclosed**: Images are sent to Scryfall (card resolution), Gemini (Vision OCR), and Claude (fallback Vision OCR). See [`docs/GDPR_POLICY.md`](./GDPR_POLICY.md).
+- **No Telemetry**: `FEATURE_TELEMETRY=false` by default; no analytics cookies, no behavioural tracking.
+- **Open Source**: full code transparency (MIT license).
+- **Docker Isolated**: containerized, non-root user, SBOM published from CI.
 
 ## 📚 Learn More
 

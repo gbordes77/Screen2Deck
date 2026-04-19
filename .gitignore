@@ -97,3 +97,13 @@ sub-agents/
 /test_ocr_raw.py
 /test_parse_logic.py
 /server_working_backup/
+
+# v2.4.0 cleanups — intermediate venv from the dependency sweep,
+# imported validation corpus not referenced by any Makefile target,
+# and TypeScript incremental build cache.
+/backend/.venv-upgrade/
+/validation_set/imported_from_old_project/
+/webapp/tsconfig.tsbuildinfo
+*.tsbuildinfo
+/backend/backend.log
+/webapp/frontend.log

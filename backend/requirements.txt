@@ -10,7 +10,9 @@ EasyOCR==1.7.2
 rapidfuzz==3.14.5
 metaphone==0.6
 requests==2.33.1
-# Vision fallback providers (Gemini primary, Claude secondary)
+# Vision providers (Gemini primary, Claude secondary).
+# Default v2.4.0 runtime is VISION_PRIMARY=true; EasyOCR is the fallback
+# when the Vision LLM chain fails, so it stays pinned above.
 google-genai>=1.73.1,<2
 anthropic>=0.95.0,<1
 aiohttp==3.13.5
@@ -22,8 +24,8 @@ orjson==3.11.8
 PyJWT>=2.12.1,<3
 cryptography>=46.0.7,<47
 passlib[bcrypt]==1.7.4
-# Async Job Processing
-celery==5.6.3
+# Job Processing (Redis only — Celery was removed in v2.4.0 together
+# with the orphan backend/app/tasks.py worker).
 redis==7.4.0
 # Testing
 pytest==9.0.3
@@ -31,23 +33,21 @@ pytest-asyncio==1.3.0
 httpx==0.28.1
 # Monitoring
 prometheus-client==0.25.0
-# OpenTelemetry
+# OpenTelemetry — the stack stays installed because main.py imports
+# telemetry.py unconditionally. Gate by FEATURE_TELEMETRY at runtime.
 opentelemetry-api==1.41.0
 opentelemetry-sdk==1.41.0
 opentelemetry-instrumentation==0.62b0
 opentelemetry-instrumentation-fastapi==0.62b0
 opentelemetry-instrumentation-redis==0.62b0
 opentelemetry-instrumentation-sqlalchemy==0.62b0
-opentelemetry-instrumentation-celery==0.62b0
 opentelemetry-instrumentation-logging==0.62b0
 opentelemetry-exporter-otlp==1.41.0
 opentelemetry-exporter-otlp-proto-grpc==1.41.0
-# Database
+# Database (sync psycopg only — asyncpg was never imported and
+# CLAUDE.md forbids it).
 alembic==1.18.4
-asyncpg==0.31.0
 # Settings
 pydantic-settings==2.13.1
-# Load Testing
-locust==2.43.4
 python-magic==0.4.27
 psutil==7.2.2

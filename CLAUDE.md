@@ -4,7 +4,29 @@ This file provides guidance to Claude Code when working with the Screen2Deck rep
 
 ## Project Status: Production Ready (v2.4.0)
 
-**Latest Update**: 2026-04-14 — Re-architecture consolidation + Vision migration (PR #2)
+**Latest Update**: 2026-04-17 — OCR-first policy flip (AI becomes an opt-in backup)
+
+Highlights of the 2026-04-17 session:
+
+- **Default OCR path reverted to EasyOCR + OpenCV** — MTG community feedback flagged the Vision-primary default as a trust issue. `VISION_PRIMARY` now defaults to **false** in `backend/app/config.py`, `backend/app/core/config.py`, `docker-compose.yml`, and `backend/.env.docker`. A fresh `docker compose up` no longer calls Gemini or Claude; the deterministic preprocess → EasyOCR best-of → regex parser → Scryfall batch pipeline is the canonical route. Operators who prefer the LLM fast path can still flip `VISION_PRIMARY=true`.
+- **EasyOCR parameters tuned for game screenshots** — `pipeline/ocr.py::run_easyocr` now passes `contrast_ths=0.1`, `adjust_contrast=0.5`, `text_threshold=0.6`, `low_text=0.3`, `link_threshold=0.4`, `mag_ratio=1.5`, `canvas_size=2560`. Sourced from the EasyOCR docs via context7 (`/jaidedai/easyocr`) — the contrast adjustments in particular lift dark MTGO screenshots that CLAHE alone under-processed.
+- **Vision path is now explicitly a backup** — `ENABLE_VISION_FALLBACK=true` stays the default so low-confidence scans can still escalate, but the module docstring in `pipeline/vision_providers.py` and the env-var comments in both config modules now describe the LLM chain as a backup, not the main route.
+- **Docs realigned** — README hero copy, architecture diagram, and env-var table rewritten to describe an OCR-primary system with AI as opt-in backup.
+
+**Previous session (2026-04-16)**: Post-merge stabilization wave (6-agent audit + fixes)
+
+Highlights of the 2026-04-16 session (on top of the 2026-04-14 consolidation):
+
+- **Real IDOR fix** — the v2.4.0 ownership check on `/api/ocr/status/{job_id}` was still dead code: `main.py` captured `user_id = token_data.job_id` while the login endpoint mints tokens with the user id under the `user_id` claim. Added `user_id` to `TokenData`, populated it in `verify_token` and `_parse_bearer`, swapped `main.py::upload_image` to `token_data.user_id`. Ownership check now actually fires.
+- **`/api/auth/api-key` no longer world-writable** — previously the endpoint accepted a POST from anyone on the internet and returned a working API key. Now requires `Depends(get_current_token)`.
+- **CSP hardened in production** — `SecurityHeadersMiddleware` now gates `'unsafe-inline'` / `'unsafe-eval'` behind `APP_ENV != "production"` so dev-mode Next.js keeps working but prod does not ship with script injection flags.
+- **CI secrets-scan unblocked** — `Makefile::ci-health` no longer bakes `postgres:postgres` into `backend/.env.docker`, `backend/.env.docker.example` lost the literal default string, and the guard in `security-checks.yml` now excludes `*.html` + `.venv*` so it stops false-positiving on its own documentation.
+- **Dead modules purged** — deleted `backend/app/routers/metrics.py` (imported but never mounted, defined stale `screen2deck_*` collectors as a second registry), `backend/app/telemetry_full.py` (never imported), and dropped `celery==5.6.3` / `asyncpg==0.31.0` / `locust==2.43.4` from `backend/requirements.txt` (orphan deps after the 2026-04-14 cleanup).
+- **`/health` version stamp** — `routers/health.py` now reports `2.4.0` instead of `2.0.0`.
+- **Makefile test targets** — `make test` now = `make unit` (Python tests/unit/ only). `make integration` exits with a pointer to `make smoke` / `make e2e-smoke`. `make e2e` aliases to `make e2e-ui` (Playwright). `ci.yml::test-backend` no longer discovers the orphan `backend/tests/conftest.py` (which was importing the legacy config module).
+- **Docs realigned with reality** — README and CLAUDE.md no longer advertise Gemini 3.1 Flash-Lite (the preview model was saturated and the code already fell back to `gemini-2.5-flash`; this session made the docs match). Architecture diagrams, pipeline steps, env blocks, and metric claims now point at the v2.4.0 Vision-primary default. `docs/how-it-works.html` (stale hand-maintained HTML) was deleted.
+
+**Previous session (2026-04-14)**: Re-architecture consolidation + Vision migration (PR #2)
 
 Landed on `refactor/consolidation-2026-04-14` in 13 commits:
 
@@ -59,18 +81,37 @@ Landed on `refactor/consolidation-2026-04-14` in 13 commits:
 
 ## OCR Processing Pipeline
 
-The OCR flow is critical to the application's functionality:
+Two code paths coexist in `main.py::process_ocr`. The **default is the
+EasyOCR + OpenCV primary path**; the Vision LLM path is an opt-in
+alternative + a low-confidence backup.
 
 ```
+EasyOCR-primary (default, VISION_PRIMARY=false):
 1. IMAGE UPLOAD → Validation and storage
-2. PREPROCESSING → 4 variants (Original, Denoised, Binarized, Sharpened)
-3. EASYOCR → Primary OCR engine (multi-pass with 85% confidence threshold)
-4. CONFIDENCE CHECK → If <62%, optional Vision API fallback
-5. SCRYFALL VALIDATION → Mandatory API verification for all cards
-6. EXPORT → Multiple formats (MTGA, Moxfield, Archidekt, TappedOut)
+2. PREPROCESSING → 4 variants (Original, CLAHE, Denoised+Sharpened,
+   Adaptive threshold); optional 4× super-res below SUPERRES_MIN_WIDTH
+3. EASYOCR best-of → contrast-lifted, mag_ratio=1.5, canvas_size=2560,
+   early-stop at OCR_EARLY_STOP_CONF (0.85)
+4. CONFIDENCE CHECK → If mean conf < OCR_MIN_CONF (0.62)
+   OR qty-line count < OCR_MIN_LINES (10)
+   AND ENABLE_VISION_FALLBACK=true AND a provider has an API key:
+     retry with Vision chain (Gemini 2.5 Flash → Claude Haiku 4.5).
+   Otherwise EasyOCR's best-effort result is used as-is.
+5. PARSE_DECK_SECTIONS → Regex parser over OCR spans
+6. SCRYFALL BATCH VALIDATION → /cards/collection (75 IDs per request)
+7. MTGO 60+15 REDISTRIBUTION (apply_mtgo_land_fix)
+8. EXPORT → MTGA, Moxfield, Archidekt, TappedOut
+
+Vision-primary (opt-in, VISION_PRIMARY=true):
+1. IMAGE UPLOAD → Validation and storage
+2. VISION LLM → Gemini structured JSON → Claude tool-use fallback,
+   typed {main, side} output, skips preprocess + EasyOCR + regex
+3. On Vision failure → EasyOCR-primary path above as full fallback
+4. SCRYFALL BATCH VALIDATION → Same as above
+5. EXPORT → Same as above
 ```
 
-**Important**: This project uses EasyOCR exclusively. Tesseract is not supported.
+**Important**: This project uses EasyOCR (never Tesseract) as the primary OCR engine.
 
 ## Project Structure
 
@@ -104,19 +145,21 @@ ALWAYS_VERIFY_SCRYFALL=true      # Never disable
 FEATURE_TELEMETRY=false          # Disable in dev
 
 # OCR Configuration
-ENABLE_VISION_FALLBACK=true      # Turn on Vision LLM path at all
-VISION_PRIMARY=true              # Route Vision LLM FIRST, EasyOCR fallback (v2.4.0+)
-ENABLE_SUPERRES=true             # 4× upscaling for small images (legacy path only)
-OCR_MIN_CONF=0.62                # Trigger Vision fallback below this (legacy path only)
-OCR_EARLY_STOP_CONF=0.85         # EasyOCR early-stop threshold (legacy path only)
+# Default in v2.4.0 (post 2026-04-17) is VISION_PRIMARY=false — EasyOCR
+# + OpenCV is the primary path. All knobs below are live on that path.
+ENABLE_VISION_FALLBACK=true      # Keep the Vision LLM chain wired as a low-conf backup
+VISION_PRIMARY=false             # Leave false to keep OCR as the primary path
+ENABLE_SUPERRES=true             # 4× upscaling for small images
+OCR_MIN_CONF=0.62                # Trigger Vision backup below this
+OCR_EARLY_STOP_CONF=0.85         # EasyOCR early-stop threshold
 OCR_MIN_SPAN_CONF=0.3            # Min confidence per text span
 SUPERRES_MIN_WIDTH=1200          # Trigger super-res below this width
 
 # Vision providers (v2.4.0+)
 VISION_PROVIDER=gemini,claude    # Comma-separated chain, first available wins
-GEMINI_API_KEY=...               # Free tier at https://aistudio.google.com/app/apikey
-GEMINI_MODEL=gemini-3.1-flash-lite-preview
-ANTHROPIC_API_KEY=               # Optional — Claude Pro/Max does NOT include API access
+GEMINI_API_KEY=                  # Free tier at https://aistudio.google.com/app/apikey
+GEMINI_MODEL=gemini-2.5-flash    # Stable GA — preview Flash-Lite was unreliable
+ANTHROPIC_API_KEY=               # Optional — API access is separate from Claude Pro/Max
 ANTHROPIC_MODEL=claude-haiku-4-5
 
 # Scryfall
@@ -164,19 +207,26 @@ make down          # Stop services
 3. **ARM64/M1/M2 Docker build fails**: Remove x86-specific packages from Dockerfile
 4. **Performance on CPU**: ~9s average (GPU required for <3s performance)
 5. **First run slow**: EasyOCR downloads models (~64MB) on first use
-6. **Rate limiting errors**: 30 req/min limit, add delays in benchmark scripts
-7. **Vision API not triggering**: Check OCR_MIN_CONF threshold (default 0.62)
+6. **Rate limiting errors**: per-endpoint IP limits enforced by `core/auth_middleware.py` (upload 10/min burst 3, status 60/min burst 10, export 20/min burst 5). Add delays in benchmark scripts.
+7. **Vision API not triggering**: on the default OCR-primary path it only runs when mean confidence drops below `OCR_MIN_CONF` (0.62) or fewer than `OCR_MIN_LINES` (10) qty-lines are found — a clean Arena screenshot should stay entirely on EasyOCR. If you want to force the LLM path for testing, set `VISION_PRIMARY=true`.
+8. **No Gemini/Anthropic key configured**: the Vision chain is a no-op and EasyOCR's best-effort result is returned as-is. This is the intended "OCR-only" deployment mode.
 
 ## Testing
 
-The project includes comprehensive testing:
-- Unit tests with MTG edge cases (DFC, Split, Adventure cards)
-- Integration tests for API endpoints
-- E2E tests with Playwright (14 test suites)
-- Golden tests for export format validation
-- Parity tests for Web/Discord consistency
+Post-v2.4.0 test-honesty pass, the only real Python unit tests live in
+`tests/unit/`:
+- `test_business_rules.py` — MTGO 60+15 redistribution (5 cases)
+- `test_exporters.py` — Archidekt/MTGA/Moxfield/TappedOut CSV escaping + split cards (6 cases)
+- `test_no_tesseract.py` — anti-Tesseract guard (4 cases)
 
-Run `make test` for the complete test suite.
+Playwright e2e lives in `tests/web-e2e/` and runs via `make e2e-ui` or
+`make e2e-smoke`. Golden exports are covered by `make golden` (via
+`tools/golden_check.py`) and `make exports-goldens` (HTTP contract test
+against a running backend).
+
+Run `make test` for the Python unit suite. The old `make integration`
+and `make e2e` Python targets point at directories that were deleted in
+v2.4.0 and now emit a pointer to their replacements.
 
 ## Code Style
 
@@ -207,10 +257,10 @@ Run `make test` for the complete test suite.
    - Update performance metrics if improved
    - Keep clean and professional
 
-4. **SESSION_NOTES.md** (Optional) - Detailed session history
-   - Create if you want session-by-session history
-   - More detailed than HANDOFF.md
-   - Include commands run, errors encountered
+4. **DONE.md** (append-only) + **PLAN.md** (live backlog) - Complement HANDOFF.md
+   - DONE.md: every completed item linked to a commit SHA (never edited in place)
+   - PLAN.md: unfinished work with severity tags (🔴 blocks merge, 🟠 ships with merge, 🟡 tech debt, 🔵 decision needed)
+   - SESSION_NOTES.md: free-form narrative for the current session
 
 ### Session End Checklist
 - [ ] Update HANDOFF.md with today's work

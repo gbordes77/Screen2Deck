@@ -1,8 +1,8 @@
-# 🏗️ Screen2Deck Architecture Documentation
+# Screen2Deck Architecture Documentation
 
-## System Overview (v2.3.0 - ONLINE-ONLY)
+## System Overview (v2.4.0 — ONLINE-ONLY + Vision-primary)
 
-Screen2Deck is a modern, cloud-native application built for 100% online operation. The system has been simplified by removing all offline capabilities, making deployment and maintenance easier while ensuring always-current card data.
+Screen2Deck is a cloud-native application built for 100% online operation. v2.4.0 adds a Vision-primary fast path: Gemini 2.5 Flash (primary) → Claude Haiku 4.5 (fallback) returning typed deck JSON, with EasyOCR kept as the fallback when the Vision call itself fails. Scryfall resolution is batched via `/cards/collection` (75 identifiers per request).
 
 ## High-Level Architecture
 
@@ -18,31 +18,30 @@ graph TB
     end
     
     subgraph "Application Layer"
-        FASTAPI[FastAPI Backend]
-        CELERY[Celery Workers]
+        FASTAPI[FastAPI Backend<br/>main.py canonical entry]
     end
-    
+
     subgraph "Data Layer"
-        REDIS[(Redis Cache)]
-        POSTGRES[(PostgreSQL)]
-        MODELS[EasyOCR Models<br/>Downloaded on-demand]
+        REDIS[(Redis<br/>jobs + idempotency + rate limits)]
+        POSTGRES[(PostgreSQL<br/>optional users)]
+        MODELS[EasyOCR Models<br/>Fallback, downloaded on-demand]
     end
-    
+
     subgraph "External Services - REQUIRED"
-        SCRYFALL[Scryfall API<br/>ONLINE ONLY]
-        OPENAI[OpenAI Vision<br/>Optional Fallback]
+        SCRYFALL[Scryfall API<br/>/cards/collection batch]
+        GEMINI[Gemini 2.5 Flash<br/>Vision primary]
+        CLAUDE[Claude Haiku 4.5<br/>Vision fallback]
     end
-    
+
     WEB --> NGINX
     API_CLIENT --> NGINX
     NGINX --> FASTAPI
     FASTAPI --> REDIS
     FASTAPI --> POSTGRES
-    FASTAPI --> MODELS
-    FASTAPI --> CELERY
-    CELERY --> REDIS
-    FASTAPI -.->|Always Online| SCRYFALL
-    FASTAPI -.->|Optional| OPENAI
+    FASTAPI -.->|Vision-primary| GEMINI
+    GEMINI -.->|on failure| CLAUDE
+    FASTAPI -.->|fallback OCR| MODELS
+    FASTAPI -.->|batch resolve| SCRYFALL
 ```
 
 ## Component Architecture

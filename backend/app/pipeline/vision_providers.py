@@ -1,19 +1,19 @@
 """
 Vision OCR providers for Screen2Deck.
 
-When EasyOCR falls below confidence thresholds we fall back to a
-multimodal LLM. The codebase originally shipped with a single OpenAI
-path; this module introduces a small provider abstraction so that
-operators can pick between modern vendors without touching the
-pipeline code.
+These providers exist as a **backup** to the primary EasyOCR + OpenCV
+pipeline, not as the default route. The MTG community specifically
+asked that deterministic OCR be the canonical path; multimodal LLMs
+only kick in when EasyOCR's mean confidence falls below
+``OCR_MIN_CONF`` (or when ``VISION_PRIMARY=true`` is explicitly set).
 
-Default chain: Gemini 3.1 Flash-Lite (primary) → Claude Haiku 4.5 (fallback).
+Default chain: Gemini 2.5 Flash (stable GA) → Claude Haiku 4.5.
 
 Configuration:
   VISION_PROVIDER=gemini,claude            # comma-separated chain, in priority order
-  GEMINI_API_KEY=...
-  ANTHROPIC_API_KEY=...
-  GEMINI_MODEL=gemini-3.1-flash-lite-preview  # optional override
+  GEMINI_API_KEY=...                       # free tier at https://aistudio.google.com
+  ANTHROPIC_API_KEY=...                    # optional, API access is separate from Claude Pro
+  GEMINI_MODEL=gemini-2.5-flash            # optional override
   ANTHROPIC_MODEL=claude-haiku-4-5
 """
 
@@ -217,12 +217,13 @@ class VisionProvider(ABC):
 
 
 class GeminiVisionProvider(VisionProvider):
-    """Gemini 3.1 Flash-Lite — best cost/speed/quality combo for image OCR (April 2026).
+    """Gemini 2.5 Flash — low-cost, low-latency backup for EasyOCR.
 
-    At $0.25/$1.50 per 1M input/output tokens and ~258 tokens per image,
-    a Vision fallback call costs roughly $0.00008, or $0.08 per 1000
-    deck scans — well under the budget of any project that still has
-    EasyOCR as its primary path.
+    Only runs when the EasyOCR + OpenCV pipeline reports mean confidence
+    below ``OCR_MIN_CONF`` (default 0.62). At ~258 tokens per image on
+    the Gemini 2.5 Flash pricing tier, a backup call costs well under
+    $0.001 per scan and the Google AI Studio free tier absorbs the bulk
+    of low-volume installs.
     """
 
     name = "gemini"
@@ -236,7 +237,7 @@ class GeminiVisionProvider(VisionProvider):
         self._model = (
             model
             or getattr(_S, "GEMINI_MODEL", None)
-            or "gemini-3.1-flash-lite-preview"
+            or "gemini-2.5-flash"
         )
         self._client = None
 
@@ -317,9 +318,7 @@ class ClaudeVisionProvider(VisionProvider):
     ) -> None:
         self._api_key = api_key or getattr(_S, "ANTHROPIC_API_KEY", None)
         self._model = (
-            model
-            or getattr(_S, "ANTHROPIC_MODEL", None)
-            or "claude-haiku-4-5"
+            model or getattr(_S, "ANTHROPIC_MODEL", None) or "claude-haiku-4-5"
         )
         self._client = None
 

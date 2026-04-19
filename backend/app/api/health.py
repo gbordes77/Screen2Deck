@@ -2,8 +2,8 @@
 Health check endpoints with detailed system information.
 """
 
-from datetime import datetime, timedelta
-from typing import Dict, Any, Optional
+from datetime import datetime
+from typing import Dict, Any
 import os
 import psutil
 import redis
@@ -22,11 +22,11 @@ def get_redis_status() -> Dict[str, Any]:
     try:
         if not settings.USE_REDIS:
             return {"enabled": False, "status": "disabled"}
-        
+
         client = redis.from_url(str(settings.REDIS_URL))
         client.ping()
         info = client.info()
-        
+
         return {
             "enabled": True,
             "status": "healthy",
@@ -38,11 +38,7 @@ def get_redis_status() -> Dict[str, Any]:
         }
     except Exception as e:
         logger.error(f"Redis health check failed: {e}")
-        return {
-            "enabled": settings.USE_REDIS,
-            "status": "unhealthy",
-            "error": str(e)
-        }
+        return {"enabled": settings.USE_REDIS, "status": "unhealthy", "error": str(e)}
 
 
 def get_system_metrics() -> Dict[str, Any]:
@@ -50,20 +46,20 @@ def get_system_metrics() -> Dict[str, Any]:
     try:
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
-        disk = psutil.disk_usage('/')
-        
+        disk = psutil.disk_usage("/")
+
         return {
             "cpu_percent": cpu_percent,
             "memory": {
                 "total_mb": memory.total // 1024 // 1024,
                 "available_mb": memory.available // 1024 // 1024,
-                "percent": memory.percent
+                "percent": memory.percent,
             },
             "disk": {
                 "total_gb": disk.total // 1024 // 1024 // 1024,
                 "free_gb": disk.free // 1024 // 1024 // 1024,
-                "percent": disk.percent
-            }
+                "percent": disk.percent,
+            },
         }
     except Exception as e:
         logger.error(f"System metrics collection failed: {e}")
@@ -87,22 +83,22 @@ async def readiness_probe():
     """Kubernetes readiness probe endpoint."""
     # Check critical dependencies
     redis_status = get_redis_status()
-    
+
     # Check if Scryfall cache exists
     scryfall_ready = os.path.exists(settings.SCRYFALL_DB)
-    
+
     if settings.USE_REDIS and redis_status.get("status") != "healthy":
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "not ready", "reason": "Redis unavailable"}
+            content={"status": "not ready", "reason": "Redis unavailable"},
         )
-    
+
     if not scryfall_ready:
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "not ready", "reason": "Scryfall cache not initialized"}
+            content={"status": "not ready", "reason": "Scryfall cache not initialized"},
         )
-    
+
     return {"status": "ready"}
 
 
@@ -112,7 +108,7 @@ async def detailed_health():
     Detailed health check with configuration and metrics.
     Includes GDPR TTL settings for transparency.
     """
-    
+
     # Basic info
     health_data = {
         "status": "healthy",
@@ -120,7 +116,7 @@ async def detailed_health():
         "version": "2.0.0",
         "environment": settings.APP_ENV,
     }
-    
+
     # Configuration (non-sensitive)
     health_data["configuration"] = {
         "ocr": {
@@ -137,9 +133,9 @@ async def detailed_health():
             "redis_enabled": settings.USE_REDIS,
             "vision_fallback": settings.ENABLE_VISION_FALLBACK,
             "superres": settings.ENABLE_SUPERRES,
-        }
+        },
     }
-    
+
     # GDPR Data Retention Settings
     health_data["data_retention"] = {
         "gdpr_enabled": settings.GDPR_ENABLED,
@@ -161,34 +157,39 @@ async def detailed_health():
             "hashes": settings.DATA_RETENTION_HASHES_DAYS * 86400,
             "logs": settings.DATA_RETENTION_LOGS_DAYS * 86400,
             "metrics": settings.DATA_RETENTION_METRICS_DAYS * 86400,
-        }
+        },
     }
-    
+
     # Vision Fallback Metrics (if enabled)
     if settings.ENABLE_VISION_FALLBACK:
         health_data["vision_fallback"] = {
             "enabled": True,
-            "confidence_threshold": getattr(settings, 'VISION_FALLBACK_CONFIDENCE_THRESHOLD', 0.62),
-            "min_lines_threshold": getattr(settings, 'VISION_FALLBACK_MIN_LINES', 10),
-            "rate_limit_per_minute": getattr(settings, 'VISION_RATE_LIMIT_PER_MINUTE', 10),
+            "confidence_threshold": getattr(
+                settings, "VISION_FALLBACK_CONFIDENCE_THRESHOLD", 0.62
+            ),
+            "min_lines_threshold": getattr(settings, "VISION_FALLBACK_MIN_LINES", 10),
+            "rate_limit_per_minute": getattr(
+                settings, "VISION_RATE_LIMIT_PER_MINUTE", 10
+            ),
         }
-    
+
     # Redis status
     health_data["redis"] = get_redis_status()
-    
+
     # System metrics
     health_data["system"] = get_system_metrics()
-    
+
     # Scryfall cache status
     health_data["scryfall"] = {
         "cache_exists": os.path.exists(settings.SCRYFALL_DB),
         "cache_path": settings.SCRYFALL_DB,
         "bulk_data_exists": os.path.exists(settings.SCRYFALL_BULK_PATH),
     }
-    
+
     # OCR Engine status
     try:
         import easyocr
+
         health_data["ocr_engine"] = {
             "type": "EasyOCR",
             "status": "available",
@@ -199,14 +200,14 @@ async def detailed_health():
             "type": "EasyOCR",
             "status": "not installed",
         }
-    
+
     # Anti-Tesseract verification
     health_data["anti_tesseract"] = {
         "tesseract_blocked": True,
         "primary_engine": "EasyOCR",
-        "message": "Tesseract is explicitly blocked. EasyOCR is the only allowed OCR engine."
+        "message": "Tesseract is explicitly blocked. EasyOCR is the only allowed OCR engine.",
     }
-    
+
     return health_data
 
 
@@ -220,14 +221,14 @@ async def metrics_summary():
             "accuracy": "≥95%",
             "p95_latency": "<5000ms",
             "cache_hit_rate": ">80%",
-            "success_rate": ">95%"
+            "success_rate": ">95%",
         },
         "current_performance": {
             "accuracy": "96.2%",
             "p95_latency": "2450ms",
             "cache_hit_rate": "82%",
-            "success_rate": "100%"
+            "success_rate": "100%",
         },
         "status": "All SLOs met ✅",
-        "benchmark_report": "/reports/day0/benchmark_day0.md"
+        "benchmark_report": "/reports/day0/benchmark_day0.md",
     }

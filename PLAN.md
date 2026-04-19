@@ -7,18 +7,20 @@ Severity legend: 🔴 blocks merge · 🟠 ships with merge · 🟡 tech debt ·
 
 ---
 
-## 🔴 Before merging PR #2 to `main`
+## 🔴 Before next release
 
-- [ ] **CI triage** — PR #2 has ~15 red jobs (`core`, `e2e`, `e2e-mobile`, `e2e-tests (chromium/firefox/webkit)`, `verify-exports`, `security-tests`, `accessibility-tests`, `Lint Code`, `Generate Reproducible Proofs`, `performance-tests`, `bench`). Smoke passes locally. Root cause likely single: missing `POSTGRES_PASSWORD` / `JWT_SECRET_KEY` / `GEMINI_API_KEY` wiring in CI runners since the `${VAR:?}` hardening. Fix: one reusable workflow `compose-up-core.yml` that every downstream `uses:`. **Owner**: TBD. **Blocks**: merge PR #2.
-- [ ] **Push current branch to origin** (6 unpushed commits: `a54d6aa`, `655bbab`, `0d2846a`, `009e02b`, `81b4ab6`, + Wave 2/3 when committed). Gated on explicit user OK.
+- [ ] **CI triage** — on the post-2026-04-16 commit, CI should be green on secrets-scan (Makefile + .env.docker.example cleaned, `*.html` excluded from the guard, `how-it-works.html` deleted) and on backend test-runner (pytest narrowed to `tests/unit`). Still-red items expected on the 2026-04-15 `main`: e2e suites that key off `OPENAI_API_KEY` (`s5-vision-fallback.spec.ts`), any CI job that builds a bench report through the fake `benchlib.mock_run_pipeline`. Verify with `gh run list -L 5 -b main` after pushing.
+- [ ] **Fill missing CI secrets** — `POSTGRES_PASSWORD`, `JWT_SECRET_KEY`, `GEMINI_API_KEY` still need to be set on every workflow runner that spins up the compose stack. A single reusable `compose-up-core.yml` workflow that every downstream `uses:` is the cleanest path.
 
 ## 🟠 Ship with merge (complete in this session if time allows)
 
-- [ ] **Add 2 unit tests** — `tests/unit/test_vision_providers.py` (mock `google.genai` + `anthropic`, exercise `run_vision_chain_structured` fallthrough Gemini → Claude on exception) and `tests/unit/test_auth_ownership.py` (FastAPI `TestClient`, two JWTs, assert user B gets 403 on user A's job). Identified by qa-expert as "the single biggest regression hole in PR #2".
+- [ ] **Add 2 unit tests** — `tests/unit/test_vision_providers.py` (mock `google.genai` + `anthropic`, exercise `run_vision_chain_structured` fallthrough Gemini → Claude on exception) and `tests/unit/test_auth_ownership.py` (FastAPI `TestClient`, two JWTs, assert user B gets 403 on user A's job). qa-expert still flags these as the biggest regression hole. The 2026-04-16 session fixed the IDOR bug, so the test is now doubly important as a guard.
 - [ ] **Delete dead `tests/web-e2e/suites/s5-vision-fallback.spec.ts`** — permanently skipped since OpenAI removal, asserts guarded by `if (await x.count() > 0)` so cannot fail. Either rewrite against the Gemini mock or delete.
 - [ ] **Tighten `tests/smoke_test.sh` thresholds** — `MIN_MAIN_CARDS=60` instead of 20, `MIN_SIDE_CARDS=15`, export all 4 formats with `len(lines) >= expected` assertions, cached re-upload check, `$CI` autodetect for auto-teardown.
-- [ ] **Fix `ci.yml:23` `continue-on-error: true`** on `lint` — at minimum for `safety check -r backend/requirements.txt` (CVE scanner was a silent advisory).
+- [ ] **Fix `ci.yml:23` `continue-on-error: true`** on `lint` — at minimum for `safety check -r backend/requirements.txt` (CVE scanner is still advisory).
 - [ ] **Fix Moxfield SB: prefix disagreement** — unit test `test_moxfield_export_structure` vs E2E `s1-happy-path.spec.ts:76` (`toMatch(/SB:/)`) disagree on whether the exporter emits `SB:` on sideboard lines. Pick one source of truth (the exporter code is canonical), update both tests accordingly.
+- [ ] **Kill the fake bench runner** — `tools/benchlib.py::mock_run_pipeline` + `tools/bench_runner.py` silently fall back to a `time.sleep(1.5-3.5)` + hardcoded 95%-accuracy payload because `app.core.pipeline.run_pipeline` doesn't exist. Every `make bench-day0` + CI `proof-tests.yml` run is currently producing fabricated numbers. Either delete the mock branch (fail loud) or rewire proof-tests.yml to use `tools/benchmark_independent.py` against a real backend service container. performance-engineer flagged this as the single biggest correctness hole in CI.
+- [ ] **Lazy-import `easyocr` / `torch`** from `backend/app/pipeline/ocr.py` — currently imported unconditionally at module top (`main.py` pulls it in too), costing ~700 MB RSS and ~4-6 s of cold start on a pure Vision-primary deploy that never touches EasyOCR. Move the imports inside the legacy branch of `process_ocr` and any other caller; `get_reader()` is a module-level singleton so this needs care.
 
 ## 🟡 Tech debt (post-merge follow-up PRs)
 

@@ -17,9 +17,8 @@ _QTY_LINE_RX = re.compile(r"^\s*(\d+|[1-9]\dx)\s+\S+")
 
 def count_qty_lines(spans) -> int:
     """Count OCR spans that look like "<qty> <card name>" lines."""
-    return sum(
-        1 for s in spans if _QTY_LINE_RX.match(s["text"].strip().lower())
-    )
+    return sum(1 for s in spans if _QTY_LINE_RX.match(s["text"].strip().lower()))
+
 
 # ONLINE-ONLY mode - No offline support
 
@@ -31,6 +30,7 @@ import cv2
 
 # Initialize determinism SECOND
 from .core.determinism import init_determinism
+
 init_determinism()
 
 # Core imports
@@ -39,33 +39,36 @@ from .core.auth_middleware import AuthMiddleware, SecurityHeadersMiddleware
 from .core.job_storage import job_storage
 from .core.validation import image_validator, text_validator, request_validator
 from .core.feature_flags import FeatureFlags
-from .core.idempotency import generate_job_key, verify_idempotency
+from .core.idempotency import generate_job_key
 from .core.metrics_minimal import (
-    create_metrics_app, track_ocr_request, record_cache_access, 
-    record_export, OCR_REQUESTS, JOBS_INFLIGHT
+    create_metrics_app,
+    track_ocr_request,
+    record_cache_access,
 )
 from .auth import (
     TokenData,
-    create_access_token,
-    get_current_token,
     get_optional_token,
-    require_permission,
 )
 
 # Application imports
 from .telemetry import logger, new_trace, telemetry
 from .models import (
-    UploadResponse, StatusResponse, DeckResult, RawOCR, OCRSpan, 
-    DeckSections, CardEntry, NormalizedDeck
+    UploadResponse,
+    StatusResponse,
+    DeckResult,
+    RawOCR,
+    OCRSpan,
+    DeckSections,
+    CardEntry,
+    NormalizedDeck,
 )
 from .error_taxonomy import *
 from .pipeline.preprocess import preprocess_variants
 from .pipeline.ocr import run_easyocr_best_of, run_vision_fallback
 from .pipeline.vision_providers import run_vision_chain_structured
-from .matching.fuzzy import score_candidates
 from .matching.scryfall_client import SCRYFALL
 from .business_rules import apply_mtgo_land_fix, validate_and_fill
-from .routers import health, metrics, auth_router, export_router
+from .routers import health, auth_router, export_router
 
 # Initialize feature flags
 FLAGS = FeatureFlags.get_all_flags()
@@ -106,28 +109,28 @@ async def lifespan(app: FastAPI):
             "(run scripts/download_scryfall.py to pre-cache)",
             bulk_path,
         )
-    
+
     # Initialize telemetry
     if settings.ENABLE_TRACING:
         telemetry.init_tracing()
-    
+
     logger.info("Screen2Deck API started successfully")
-    
+
     yield
-    
+
     # Shutdown
     logger.info("Shutting down Screen2Deck API...")
-    
+
     # Disconnect from Redis
     await job_storage.disconnect()
-    
+
     # Close Scryfall cache
     # (scryfall_client uses requests.Session; no explicit close needed.)
-    
+
     # Shutdown telemetry
     if settings.ENABLE_TRACING:
         telemetry.shutdown()
-    
+
     logger.info("Screen2Deck API shutdown complete")
 
 
@@ -137,7 +140,7 @@ app = FastAPI(
     version="2.4.0",
     description="Production-ready MTG card list OCR and export API",
     default_response_class=ORJSONResponse,
-    lifespan=lifespan
+    lifespan=lifespan,
 )
 
 # Add security middleware
@@ -145,9 +148,16 @@ app.add_middleware(SecurityHeadersMiddleware)
 app.add_middleware(
     AuthMiddleware,
     skip_auth_paths={
-        "/", "/health", "/metrics", "/docs", "/openapi.json", "/redoc",
-        "/api/auth/login", "/api/auth/register", "/api/auth/refresh"
-    }
+        "/",
+        "/health",
+        "/metrics",
+        "/docs",
+        "/openapi.json",
+        "/redoc",
+        "/api/auth/login",
+        "/api/auth/register",
+        "/api/auth/refresh",
+    },
 )
 
 # Configure CORS with settings
@@ -156,7 +166,7 @@ app.add_middleware(
     allow_origins=settings.CORS_ORIGINS,
     allow_credentials=settings.CORS_ALLOW_CREDENTIALS,
     allow_methods=settings.CORS_ALLOW_METHODS,
-    allow_headers=settings.CORS_ALLOW_HEADERS
+    allow_headers=settings.CORS_ALLOW_HEADERS,
 )
 
 # Mount Prometheus metrics endpoint
@@ -173,7 +183,7 @@ app.include_router(export_router, prefix="/api/export", tags=["export"])
     "/api/ocr/upload",
     response_model=UploadResponse,
     summary="Upload image for OCR processing",
-    description="Upload a deck list image for OCR processing with idempotency support"
+    description="Upload a deck list image for OCR processing with idempotency support",
 )
 async def upload_image(
     request: Request,
@@ -182,7 +192,7 @@ async def upload_image(
 ):
     """
     Upload an image for OCR processing.
-    
+
     Features:
     - Image validation and sanitization
     - Idempotency via image hash
@@ -193,19 +203,18 @@ async def upload_image(
     # Track OCR request
     with track_ocr_request():
         trace_id = new_trace()
-        
+
         # Validate request headers
         if not request_validator.validate_headers(dict(request.headers)):
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": VALIDATION_ERROR, "message": "Invalid request headers"}
+                detail={"code": VALIDATION_ERROR, "message": "Invalid request headers"},
             )
-        
+
         # Validate and sanitize image
         try:
             sanitized_content, metadata = await image_validator.validate_upload(
-                file, 
-                calculate_hash=True
+                file, calculate_hash=True
             )
         except HTTPException:
             raise
@@ -213,9 +222,9 @@ async def upload_image(
             logger.error(f"Image validation failed: {e}")
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": BAD_IMAGE, "message": "Image validation failed"}
+                detail={"code": BAD_IMAGE, "message": "Image validation failed"},
             )
-        
+
         # Generate idempotency key
         pipeline_config = {
             "ocr_engine": FLAGS["ocr_engine"],
@@ -227,13 +236,13 @@ async def upload_image(
                 "denoise": True,
                 "binarize": True,
                 "sharpen": True,
-                "superres": False
-            }
+                "superres": False,
+            },
         }
-        
+
         job_key = generate_job_key(sanitized_content, **pipeline_config)
         image_hash = metadata.get("hash", job_key[:64])  # Use full job_key as hash
-        
+
         # Check cache (idempotency) using image_hash
         if settings.USE_REDIS:
             existing_job_id = await job_storage.find_by_image_hash(image_hash)
@@ -241,50 +250,43 @@ async def upload_image(
                 logger.info(f"Cache hit for image hash {image_hash[:16]}")
                 record_cache_access("ocr", hit=True)
                 return UploadResponse(jobId=existing_job_id, cached=True)
-        
+
         record_cache_access("ocr", hit=False)
-        
+
         # Create new job
         job_id = str(uuid.uuid4())
-        user_id = token_data.job_id if token_data else None
-        
+        # Attach caller identity when available so ownership can be enforced
+        # on /api/ocr/status/{job_id}. Anonymous uploads stay anonymous.
+        user_id = token_data.user_id if token_data else None
+
         await job_storage.create_job(
-            job_id=job_id,
-            image_hash=image_hash,
-            user_id=user_id,
-            metadata=metadata
+            job_id=job_id, image_hash=image_hash, user_id=user_id, metadata=metadata
         )
-        
+
         # Process image asynchronously
         # In production, this would be sent to a Celery queue
         # For now, we process inline but update job status
         await job_storage.update_job(job_id, state="processing", progress=10)
-        
+
         try:
             # Process OCR
             result = await process_ocr(sanitized_content, job_id, trace_id)
-            
+
             # Save result
             await job_storage.update_job(
-                job_id,
-                state="completed",
-                progress=100,
-                result=result.model_dump()
+                job_id, state="completed", progress=100, result=result.model_dump()
             )
-            
+
         except Exception as e:
             logger.error(f"OCR processing failed for job {job_id}: {e}")
             await job_storage.update_job(
-                job_id,
-                state="failed",
-                progress=100,
-                error=str(e)
+                job_id, state="failed", progress=100, error=str(e)
             )
             raise HTTPException(
                 status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-                detail={"code": OCR_ERROR, "message": "OCR processing failed"}
+                detail={"code": OCR_ERROR, "message": "OCR processing failed"},
             )
-        
+
         return UploadResponse(jobId=job_id, cached=False)
 
 
@@ -324,8 +326,14 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         ocr_method = "easyocr"
 
         # -------- Vision-primary fast path --------
-        if settings.ENABLE_VISION_FALLBACK and getattr(settings, "VISION_PRIMARY", False):
-            structured = await asyncio.to_thread(run_vision_chain_structured, img)
+        if settings.ENABLE_VISION_FALLBACK and getattr(
+            settings, "VISION_PRIMARY", False
+        ):
+            try:
+                structured = await asyncio.to_thread(run_vision_chain_structured, img)
+            except Exception as vision_exc:
+                logger.warning("Vision-primary chain failed: %s", vision_exc)
+                structured = None
             if structured and (structured.get("main") or structured.get("side")):
                 main_entries = [
                     CardEntry(
@@ -354,8 +362,19 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
 
         # -------- EasyOCR fallback / legacy path --------
         if parsed is None:
-            variants = preprocess_variants(img)
-            ocr_raw = run_easyocr_best_of(variants)
+            # Both ``preprocess_variants`` (OpenCV) and
+            # ``run_easyocr_best_of`` (PyTorch) are CPU-bound and
+            # historically ran inline on the event loop, blocking every
+            # other request — including ``/health`` — for the full
+            # duration of the OCR pass. Ship them off to a worker
+            # thread so concurrent uploads and health checks keep
+            # flowing while a scan is in flight.
+            def _cpu_bound_ocr():
+                vars_ = preprocess_variants(img)
+                raw_ = run_easyocr_best_of(vars_)
+                return vars_, raw_
+
+            variants, ocr_raw = await asyncio.to_thread(_cpu_bound_ocr)
 
             await job_storage.update_job(job_id, progress=40)
 
@@ -363,13 +382,23 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
                 ocr_raw["mean_conf"] < settings.OCR_MIN_CONF
                 or count_qty_lines(ocr_raw["spans"]) < settings.OCR_MIN_LINES
             ) and settings.ENABLE_VISION_FALLBACK:
-                best_img = max(variants, key=lambda im: cv2.countNonZero(im))
-                ocr_raw = run_vision_fallback(best_img)
+                best_img = max(
+                    variants,
+                    key=lambda im: cv2.countNonZero(
+                        cv2.cvtColor(im, cv2.COLOR_BGR2GRAY)
+                        if len(im.shape) == 3
+                        else im
+                    ),
+                )
+                ocr_raw = await asyncio.to_thread(run_vision_fallback, best_img)
                 ocr_method = "vision_fallback_text"
 
             await job_storage.update_job(job_id, progress=60)
 
-            spans = [OCRSpan(text=s["text"], conf=s["conf"]) for s in ocr_raw["spans"]]
+            spans = [
+                OCRSpan(text=s["text"], conf=s["conf"], bbox=s.get("bbox"))
+                for s in ocr_raw["spans"]
+            ]
             raw = RawOCR(spans=spans, mean_conf=ocr_raw["mean_conf"])
             parsed = parse_deck_sections(spans)
 
@@ -401,46 +430,231 @@ async def process_ocr(content: bytes, job_id: str, trace_id: str) -> DeckResult:
         )
 
 
-def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
+_QTY_TOKEN_RX = re.compile(r"^\s*[xX]?\s*(\d{1,2})\s*[xX]?\s*$")
+_INLINE_QTY_RX = re.compile(r"^\s*(\d{1,2}|[xX]\d{1,2})\s+(.+?)\s*$")
+
+# UI chrome strings that Arena / MTGO / mtggoldfish render next to deck
+# lists. These are NOT card names — filtering them out stops the parser
+# from emitting bogus entries like ``40x "700"`` (from the ``60/60
+# Cards`` stats label) or ``15x "Cards"`` (from the sideboard header).
+_UI_CHROME_RX = re.compile(
+    r"^\s*("
+    r"\d+\s*/\s*\d+"                     # 60/60, 15/15, …
+    r"|\d+\s*cards?"                      # "60 Cards", "15 Cards"
+    r"|cards?|deck|sideboard|mainboard"   # bare UI labels
+    r"|collection|library|graveyard|hand"
+    r"|commander|companion|maybe(board)?"
+    r"|remove|add|close|save|export|edit"
+    r"|creatures?|lands?|spells?|planes?walkers?|artifacts?|enchantments?"
+    r"|search|filter|sort|price|total"
+    r"|\d+%|~\d+|\d+\s*mana"
+    r")\s*$",
+    re.IGNORECASE,
+)
+
+# Known Scryfall names (hydrated at startup) that we intentionally never
+# blocklist — e.g. "Forest", "Creature — Beast". We only apply the chrome
+# filter to strings that *also* look like UI noise; real card names like
+# "Forest" go through untouched because ``_UI_CHROME_RX`` doesn't match
+# anything that isn't in its closed list.
+
+
+def _looks_like_ui_chrome(text: str) -> bool:
+    return bool(_UI_CHROME_RX.match(text.strip()))
+
+
+def _span_center_y(span: OCRSpan) -> Optional[float]:
+    if not span.bbox:
+        return None
+    ys = [pt[1] for pt in span.bbox]
+    return sum(ys) / len(ys) if ys else None
+
+
+def _span_left_x(span: OCRSpan) -> Optional[float]:
+    if not span.bbox:
+        return None
+    xs = [pt[0] for pt in span.bbox]
+    return min(xs) if xs else None
+
+
+def _span_height(span: OCRSpan) -> float:
+    if not span.bbox:
+        return 0.0
+    ys = [pt[1] for pt in span.bbox]
+    return max(ys) - min(ys) if ys else 0.0
+
+
+def _match_qty_token(text: str) -> Optional[int]:
+    """Return the integer quantity when ``text`` is a pure qty token.
+
+    Matches ``"4"``, ``"x2"``, ``"X3"``, ``" 4x "`` — anything that is
+    *only* a small integer with an optional ``x`` prefix/suffix. Returns
+    None for text that also carries a card name.
     """
-    Parse OCR spans into deck sections.
+    m = _QTY_TOKEN_RX.match(text)
+    if not m:
+        return None
+    qty = int(m.group(1))
+    if 1 <= qty <= 99:
+        return qty
+    return None
+
+
+def _strip_leading_ui_noise(name: str) -> str:
+    """Drop UI characters that EasyOCR picks up from MTGA card frames.
+
+    Arena overlays brackets / parentheses / pipe glyphs on card tiles.
+    The regex below trims any stray leading punctuation so the Scryfall
+    fuzzy matcher gets a clean starting token.
+    """
+    return re.sub(r"^[\s\(\[\{\|\.\,\:\;\-]+", "", name).strip()
+
+
+def parse_deck_sections(spans: list[OCRSpan]) -> DeckSections:
+    """Parse OCR spans into deck sections.
+
+    Two layouts coexist in the wild and we handle both:
+
+    1. **Inline / text-export layout** (MTGO exports, mtggoldfish text
+       dumps, and MTGA's "Export deck" clipboard format): each OCR span
+       already reads ``"4 Lightning Bolt"``. We match via
+       ``_INLINE_QTY_RX`` on the span text — this is the legacy
+       behaviour and stays fast.
+
+    2. **Visual / column-separated layout** (the actual Arena deck
+       builder UI — what the MTG community screenshots the most): the
+       quantity and the card name are in *different columns*, so
+       EasyOCR emits them as two separate spans. We fall back to a
+       **spatial parser** that pairs each standalone ``"x2"`` / ``"3"``
+       qty span with the closest-by-y card-name span on the same row.
+
+    The spatial parser only activates when the inline pass yields too
+    few cards — that way clean text exports don't pay its cost.
     """
     main_entries: list[CardEntry] = []
     side_entries: list[CardEntry] = []
     section = "main"
-    
-    for span in spans:
+
+    # --- Pass 1: inline "<qty> <name>" parsing (legacy behaviour) ---
+    consumed_span_ids: set[int] = set()
+    for idx, span in enumerate(spans):
         line = span.text.strip()
-        
-        # Check for sideboard marker
+        if not line:
+            continue
         if line.lower().startswith("sideboard") or line.lower().startswith("sb"):
             section = "side"
+            consumed_span_ids.add(idx)
             continue
-        
-        # Parse quantity and name
-        qty = 0
-        name = ""
-        parts = line.split(" ", 1)
-        
-        if len(parts) == 2:
-            if parts[0].isdigit():
-                qty = int(parts[0])
-                name = parts[1]
-            elif parts[0].lower().endswith("x") and parts[0][:-1].isdigit():
-                qty = int(parts[0][:-1])
-                name = parts[1]
-        
-        if qty > 0 and name:
-            # Sanitize card name
-            name = text_validator.sanitize_card_name(name)
-            entry = CardEntry(qty=qty, name=name)
-            
-            if section == "main":
-                main_entries.append(entry)
-            else:
-                side_entries.append(entry)
-    
+        # Drop pure UI chrome lines before we try to parse a qty out of
+        # them. Things like ``"60/60 Cards"`` or ``"15 Cards"`` would
+        # otherwise feed the regex and produce bogus entries.
+        if _looks_like_ui_chrome(line):
+            consumed_span_ids.add(idx)
+            continue
+        m = _INLINE_QTY_RX.match(line)
+        if m:
+            qty_raw = m.group(1)
+            name = m.group(2)
+            qty = int(qty_raw.lstrip("xX")) if qty_raw else 0
+            if qty <= 0:
+                continue
+            clean_name = _strip_leading_ui_noise(name)
+            clean_name = text_validator.sanitize_card_name(clean_name)
+            if not clean_name or _looks_like_ui_chrome(clean_name):
+                continue
+            entry = CardEntry(qty=qty, name=clean_name)
+            (main_entries if section == "main" else side_entries).append(entry)
+            consumed_span_ids.add(idx)
+
+    # --- Pass 2: spatial pairing for MTGA visual layouts ---
+    # If the inline pass captured fewer than 10 cards AND bboxes are
+    # available, attempt to pair qty-only spans with name-only spans
+    # by vertical alignment.
+    if (len(main_entries) + len(side_entries)) < 10 and any(
+        s.bbox for s in spans
+    ):
+        paired = _spatial_pair(
+            [s for i, s in enumerate(spans) if i not in consumed_span_ids]
+        )
+        # Insert paired entries respecting the most-recently-seen
+        # "Sideboard" marker. The spatial pass resets section to
+        # "main" since it doesn't know about markers; we keep that
+        # simple — the validator will redistribute 60+15 afterwards.
+        main_entries.extend(e for e in paired if e.qty > 0)
+
     return DeckSections(main=main_entries, side=side_entries)
+
+
+def _spatial_pair(spans: list[OCRSpan]) -> list[CardEntry]:
+    """Pair standalone qty spans with the nearest card-name span.
+
+    Strategy:
+        * Bucket every span with a bbox into rows by center-y. Row
+          tolerance is derived from the median span height so it
+          adapts to resolution.
+        * Within a row, the left-most readable text span is the
+          candidate card name, and any ``"x?<n>"``-shaped span is the
+          quantity. When a row has one qty and one or more name spans,
+          emit a ``CardEntry``.
+        * Rows with no detected qty or no readable name are dropped.
+
+    This approximates what the human eye does when scanning the Arena
+    deck-builder: "this number belongs to that card because they share
+    a horizontal line."
+    """
+    usable = [s for s in spans if s.bbox and _span_center_y(s) is not None]
+    if not usable:
+        return []
+
+    # Row tolerance = 0.6 × median span height (empirically ~12-18 px
+    # on a 1080p Arena screenshot).
+    heights = sorted(h for h in (_span_height(s) for s in usable) if h > 0)
+    row_tol = heights[len(heights) // 2] * 0.6 if heights else 12.0
+
+    # Sort spans top-down, then cluster into rows.
+    usable_sorted = sorted(usable, key=lambda s: _span_center_y(s) or 0.0)
+    rows: list[list[OCRSpan]] = []
+    for span in usable_sorted:
+        cy = _span_center_y(span) or 0.0
+        if rows and abs(cy - (_span_center_y(rows[-1][0]) or 0.0)) <= row_tol:
+            rows[-1].append(span)
+        else:
+            rows.append([span])
+
+    entries: list[CardEntry] = []
+    for row in rows:
+        qty = None
+        name_candidates: list[OCRSpan] = []
+        for s in row:
+            text = s.text.strip()
+            if _looks_like_ui_chrome(text):
+                continue
+            as_qty = _match_qty_token(text)
+            if as_qty is not None:
+                qty = as_qty
+                continue
+            # Ignore obvious noise (pure punctuation, very short strings
+            # that are neither qty nor a word).
+            if len(re.sub(r"[^a-zA-Z]", "", text)) < 3:
+                continue
+            name_candidates.append(s)
+
+        if qty is None or not name_candidates:
+            continue
+
+        # Pick the left-most name candidate as the card name — MTGA and
+        # MTGO both render the name flush-left while the qty sits
+        # further right on the same row.
+        name_span = min(
+            name_candidates,
+            key=lambda s: _span_left_x(s) if _span_left_x(s) is not None else 1e9,
+        )
+        raw_name = _strip_leading_ui_noise(name_span.text)
+        clean_name = text_validator.sanitize_card_name(raw_name)
+        if not clean_name or _looks_like_ui_chrome(clean_name):
+            continue
+        entries.append(CardEntry(qty=qty, name=clean_name))
+    return entries
 
 
 async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:
@@ -505,7 +719,7 @@ async def normalize_deck(parsed: DeckSections) -> NormalizedDeck:
     "/api/ocr/status/{job_id}",
     response_model=StatusResponse,
     summary="Get job status",
-    description="Get the status and results of an OCR job"
+    description="Get the status and results of an OCR job",
 )
 async def get_job_status(
     job_id: str,
@@ -518,7 +732,7 @@ async def get_job_status(
     if not text_validator.validate_job_id(job_id):
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
-            detail={"code": VALIDATION_ERROR, "message": "Invalid job ID format"}
+            detail={"code": VALIDATION_ERROR, "message": "Invalid job ID format"},
         )
 
     # Get job from storage
@@ -527,7 +741,7 @@ async def get_job_status(
     if not job:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
-            detail={"code": "JOB_NOT_FOUND", "message": "Job not found"}
+            detail={"code": "JOB_NOT_FOUND", "message": "Job not found"},
         )
 
     # IDOR protection: a job owned by an authenticated user is only
@@ -547,7 +761,7 @@ async def get_job_status(
         state=job["state"],
         progress=job.get("progress", 0),
         result=job.get("result"),
-        error=job.get("error")
+        error=job.get("error"),
     )
 
 
@@ -559,16 +773,17 @@ async def root():
         "version": "2.4.0",
         "status": "healthy",
         "docs": "/docs",
-        "metrics": "/metrics"
+        "metrics": "/metrics",
     }
 
 
 if __name__ == "__main__":
     import uvicorn
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=settings.PORT,
         reload=settings.is_development,
-        log_level=settings.LOG_LEVEL.lower()
+        log_level=settings.LOG_LEVEL.lower(),
     )

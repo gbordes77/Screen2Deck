@@ -107,10 +107,16 @@ export async function exportDeck(
   deck: NormalizedDeck,
   signal?: AbortSignal,
 ): Promise<ExportResponse> {
-  return request<ExportResponse>(`/api/export/${target}`, {
+  const res = await fetch(`${API_BASE}/api/export/${target}`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(deck),
     signal,
   });
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new ApiError(res.status, body);
+  }
+  const text = await res.text();
+  return { text, format: target };
 }

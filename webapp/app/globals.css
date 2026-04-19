@@ -1,3 +1,455 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* ---------------------------------------------------------------------------
+ * Design tokens — aligned with manatuner.app homepage (light mode).
+ * ------------------------------------------------------------------------ */
+:root {
+  /* Mana palette (canonical, tuned for readability on parchment bg) */
+  --mana-white: #e0b23a;
+  --mana-blue: #2f5ba8;
+  --mana-black: #4a2160;
+  --mana-red: #c62828;
+  --mana-green: #2e7d32;
+
+  /* Surfaces */
+  --color-bg: #f5f3ee;
+  --color-bg-soft: #faf8f3;
+  --color-surface: #ffffff;
+  --color-paper: #ffffff;
+  --color-border: rgba(60, 50, 40, 0.1);
+  --color-border-hover: rgba(60, 50, 40, 0.22);
+
+  /* Text */
+  --color-text: #1a1a1a;
+  --color-subtle: #555555;
+  --color-muted: #7a6f5f;
+
+  /* Accents */
+  --mtg-gold: #daa520;
+  --mtg-gold-light: #e9b54c;
+  --mtg-navy: #2d3e8e;
+
+  /* Radii */
+  --radius-sm: 4px;
+  --radius-md: 8px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
+  --radius-2xl: 20px;
+  --radius-full: 9999px;
+
+  /* Shadow */
+  --shadow-sm: 0 1px 3px rgba(60, 50, 40, 0.08);
+  --shadow-md: 0 4px 12px rgba(60, 50, 40, 0.08);
+  --shadow-lg: 0 10px 30px rgba(60, 50, 40, 0.10);
+
+  /* Motion */
+  --ease-signature: cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* ---------------------------------------------------------------------------
+ * Base
+ * ------------------------------------------------------------------------ */
+@layer base {
+  *,
+  *::before,
+  *::after {
+    box-sizing: border-box;
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    @apply text-mtg-text font-sans antialiased;
+    /* Parchment background with a subtle lavender glow at the top */
+    background:
+      radial-gradient(
+        ellipse 90% 60% at 50% -5%,
+        rgba(190, 170, 220, 0.22) 0%,
+        transparent 55%
+      ),
+      radial-gradient(
+        ellipse 40% 40% at 10% 40%,
+        rgba(230, 180, 100, 0.06) 0%,
+        transparent 60%
+      ),
+      radial-gradient(
+        ellipse 40% 40% at 90% 60%,
+        rgba(100, 140, 200, 0.06) 0%,
+        transparent 60%
+      ),
+      linear-gradient(180deg, #f8f6f2 0%, #f1ede4 100%);
+    background-attachment: fixed;
+    min-height: 100vh;
+  }
+
+  /* Headings — Cinzel serif, the ManaTuner signature */
+  h1,
+  h2,
+  h3,
+  h4 {
+    @apply font-heading text-mtg-text;
+    line-height: 1.15;
+  }
+
+  h1 {
+    font-size: clamp(2.25rem, 6vw, 4rem);
+    font-weight: 700;
+    letter-spacing: 0.02em;
+    text-transform: uppercase;
+  }
+
+  h2 {
+    font-size: clamp(1.5rem, 3.5vw, 2.25rem);
+    font-weight: 600;
+    letter-spacing: 0.01em;
+  }
+
+  h3 {
+    font-size: 1.375rem;
+    font-weight: 600;
+  }
+
+  h4 {
+    font-size: 1.125rem;
+    font-weight: 500;
+  }
+
+  /* Selection + Focus */
+  ::selection {
+    background: rgba(218, 165, 32, 0.22);
+    color: var(--color-text);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--mana-blue);
+    outline-offset: 2px;
+    border-radius: var(--radius-sm);
+  }
+
+  /* Scrollbar */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(60, 50, 40, 0.18);
+    border-radius: 8px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(60, 50, 40, 0.32);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Components
+ * ------------------------------------------------------------------------ */
+@layer components {
+  /* ---- h1 signature: WUBRG gradient sweep ------------------------------ */
+  .brand-title {
+    background: linear-gradient(
+      90deg,
+      var(--mana-white) 0%,
+      var(--mana-blue) 25%,
+      var(--mana-black) 50%,
+      var(--mana-red) 75%,
+      var(--mana-green) 100%
+    );
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    background-clip: text;
+    color: transparent;
+    @supports not (background-clip: text) {
+      color: var(--mana-blue);
+    }
+  }
+
+  /* ---- Card -------------------------------------------------------------- */
+  .mtg-card {
+    background: var(--color-paper);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-xl);
+    box-shadow: var(--shadow-md);
+    transition:
+      transform 0.3s var(--ease-signature),
+      box-shadow 0.3s var(--ease-signature),
+      border-color 0.3s var(--ease-signature);
+  }
+  .mtg-card--hover:hover {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--color-border-hover);
+  }
+
+  /* ---- CTA buttons: big rounded-full pills ------------------------------ */
+  .cta-pill {
+    @apply inline-flex items-center justify-center gap-2.5 font-semibold;
+    padding: 16px 36px;
+    border-radius: var(--radius-full);
+    font-size: 1.05rem;
+    letter-spacing: 0.01em;
+    text-transform: none;
+    transition: all 0.3s var(--ease-signature);
+    cursor: pointer;
+    white-space: nowrap;
+  }
+  .cta-pill:hover:not(:disabled) {
+    transform: translateY(-2px);
+  }
+  .cta-pill:active:not(:disabled) {
+    transform: translateY(0);
+  }
+  .cta-pill:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+  }
+
+  .cta-pill--gold {
+    background: linear-gradient(135deg, #f4c542 0%, #e9b54c 55%, #d79922 100%);
+    color: #3b2a00;
+    box-shadow:
+      0 8px 20px rgba(218, 165, 32, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.45);
+  }
+  .cta-pill--gold:hover:not(:disabled) {
+    box-shadow:
+      0 12px 28px rgba(218, 165, 32, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  }
+
+  .cta-pill--navy {
+    background: linear-gradient(135deg, #3f52b0 0%, #2d3e8e 55%, #1e2a6b 100%);
+    color: #ffffff;
+    box-shadow:
+      0 8px 20px rgba(45, 62, 142, 0.35),
+      inset 0 1px 0 rgba(255, 255, 255, 0.15);
+  }
+  .cta-pill--navy:hover:not(:disabled) {
+    box-shadow:
+      0 12px 28px rgba(45, 62, 142, 0.45),
+      inset 0 1px 0 rgba(255, 255, 255, 0.20);
+  }
+
+  /* ---- Ghost button ----------------------------------------------------- */
+  .mtg-btn-ghost {
+    @apply inline-flex items-center justify-center gap-2 font-medium;
+    padding: 10px 20px;
+    border-radius: var(--radius-full);
+    color: var(--color-subtle);
+    background: var(--color-surface);
+    border: 1px solid var(--color-border);
+    transition: all 0.25s var(--ease-signature);
+    cursor: pointer;
+  }
+  .mtg-btn-ghost:hover {
+    color: var(--mana-blue);
+    border-color: rgba(47, 91, 168, 0.30);
+    background: #ffffff;
+    transform: translateY(-1px);
+    box-shadow: var(--shadow-sm);
+  }
+
+  /* ---- Pastel feature chips (the 3 pills under the subtitle) ----------- */
+  .feature-chip {
+    @apply inline-flex items-center gap-2 font-medium;
+    padding: 8px 18px;
+    border-radius: var(--radius-full);
+    font-size: 0.875rem;
+    border: 1px solid transparent;
+    transition: all 0.25s var(--ease-signature);
+  }
+
+  .feature-chip--blue {
+    background: #e3edf8;
+    color: #1e3a8a;
+    border-color: rgba(47, 91, 168, 0.18);
+  }
+  .feature-chip--green {
+    background: #e4efe4;
+    color: #1b5e20;
+    border-color: rgba(46, 125, 50, 0.18);
+  }
+  .feature-chip--pink {
+    background: #f3e5f5;
+    color: #6a1b8a;
+    border-color: rgba(106, 27, 138, 0.18);
+  }
+  .feature-chip--gold {
+    background: #fbf1d4;
+    color: #8a6d14;
+    border-color: rgba(218, 165, 32, 0.28);
+  }
+  .feature-chip:hover {
+    transform: translateY(-1px);
+  }
+
+  /* ---- Export target chips (on result page) ---------------------------- */
+  .export-chip {
+    @apply inline-flex items-center gap-2 font-semibold;
+    padding: 10px 22px;
+    border-radius: var(--radius-full);
+    font-size: 0.9rem;
+    border: 1.5px solid transparent;
+    transition: all 0.25s var(--ease-signature);
+    cursor: pointer;
+  }
+  .export-chip:hover {
+    transform: translateY(-2px);
+    box-shadow: var(--shadow-sm);
+  }
+  .export-chip--gold {
+    background: #fbf1d4;
+    color: #8a6d14;
+    border-color: rgba(218, 165, 32, 0.5);
+  }
+  .export-chip--blue {
+    background: #e3edf8;
+    color: #1e3a8a;
+    border-color: rgba(47, 91, 168, 0.5);
+  }
+  .export-chip--green {
+    background: #e4efe4;
+    color: #1b5e20;
+    border-color: rgba(46, 125, 50, 0.5);
+  }
+  .export-chip--red {
+    background: #fbe4e4;
+    color: #991b1b;
+    border-color: rgba(198, 40, 40, 0.5);
+  }
+  .export-chip--copied {
+    background: #d1f7d1;
+    color: #1b5e20;
+    border-color: var(--mana-green);
+  }
+
+  /* ---- Mana symbol circles (5 at the top of the hero) ------------------ */
+  .mana-circle {
+    @apply inline-flex items-center justify-center relative;
+    width: 44px;
+    height: 44px;
+    border-radius: 9999px;
+    border: 2px solid rgba(60, 50, 40, 0.15);
+    box-shadow:
+      inset 0 -2px 4px rgba(0, 0, 0, 0.15),
+      inset 0 2px 4px rgba(255, 255, 255, 0.55),
+      0 4px 10px rgba(60, 50, 40, 0.18);
+    transition: transform 0.25s var(--ease-signature);
+  }
+  .mana-circle:hover {
+    transform: translateY(-2px) scale(1.05);
+  }
+  .mana-circle--white {
+    background: radial-gradient(circle at 30% 30%, #fff4c9 0%, #f0d878 60%, #d4b441 100%);
+    color: #8a6d14;
+  }
+  .mana-circle--blue {
+    background: radial-gradient(circle at 30% 30%, #7cb6e6 0%, #3f7cc5 60%, #24538f 100%);
+    color: #ffffff;
+  }
+  .mana-circle--black {
+    background: radial-gradient(circle at 30% 30%, #8a7a9a 0%, #44384f 60%, #1a1424 100%);
+    color: #e0d0f0;
+  }
+  .mana-circle--red {
+    background: radial-gradient(circle at 30% 30%, #ff8e6e 0%, #d84426 60%, #a02a1a 100%);
+    color: #ffffff;
+  }
+  .mana-circle--green {
+    background: radial-gradient(circle at 30% 30%, #7ec48a 0%, #3a8a44 60%, #1a5a28 100%);
+    color: #ffffff;
+  }
+
+  /* ---- Divider --------------------------------------------------------- */
+  .mtg-divider {
+    height: 1px;
+    background: linear-gradient(
+      90deg,
+      transparent 0%,
+      var(--color-border) 50%,
+      transparent 100%
+    );
+  }
+
+  /* ---- Info callout (soft lavender) ------------------------------------ */
+  .info-callout {
+    border-radius: var(--radius-2xl);
+    background: linear-gradient(
+      135deg,
+      rgba(200, 200, 240, 0.35) 0%,
+      rgba(220, 210, 240, 0.20) 100%
+    );
+    border: 1px solid rgba(120, 100, 180, 0.18);
+    padding: 20px 28px;
+  }
+
+  /* ---- Background decorative mana glyphs (corners) --------------------- */
+  .bg-mana-corner {
+    position: absolute;
+    pointer-events: none;
+    opacity: 0.12;
+    z-index: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Utilities
+ * ------------------------------------------------------------------------ */
+@layer utilities {
+  .sr-only {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    padding: 0;
+    margin: -1px;
+    overflow: hidden;
+    clip: rect(0, 0, 0, 0);
+    white-space: nowrap;
+    border: 0;
+  }
+}
+
+/* ---------------------------------------------------------------------------
+ * Accessibility — prefers-reduced-motion
+ * ------------------------------------------------------------------------ */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Mobile — anti-zoom on iOS (inputs must be >= 16px) */
+@media (max-width: 768px) {
+  input,
+  textarea,
+  select {
+    font-size: 16px !important;
+  }
+}
+
+/* Print */
+@media print {
+  body {
+    background: white !important;
+  }
+  .cta-pill,
+  header,
+  footer {
+    display: none !important;
+  }
+  .mtg-card {
+    background: white !important;
+    border: 1px solid #ccc !important;
+  }
+}

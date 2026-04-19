@@ -10,12 +10,19 @@ from pydantic import BaseModel, EmailStr
 
 from ..core.config import settings
 from ..auth import (
-    create_access_token, create_api_key, hash_api_key,
-    pwd_context, Token, ApiKey
+    TokenData,
+    create_access_token,
+    create_api_key,
+    hash_api_key,
+    get_current_token,
+    pwd_context,
+    Token,
+    ApiKey,
 )
 from ..telemetry import logger
 
 router = APIRouter()
+
 
 # Request/Response models
 class RegisterRequest(BaseModel):
@@ -23,16 +30,20 @@ class RegisterRequest(BaseModel):
     email: EmailStr
     password: str
 
+
 class LoginRequest(BaseModel):
     username: str
     password: str
 
+
 class RefreshRequest(BaseModel):
     refresh_token: str
+
 
 class ApiKeyRequest(BaseModel):
     name: str
     permissions: Optional[list[str]] = ["ocr:read", "ocr:write", "export:read"]
+
 
 class UserResponse(BaseModel):
     id: str
@@ -57,7 +68,7 @@ mock_users: Dict[str, Dict] = {}
     response_model=UserResponse,
     status_code=status.HTTP_201_CREATED,
     summary="Register new user",
-    description="Create a new user account"
+    description="Create a new user account",
 )
 async def register(request: RegisterRequest):
     """
@@ -66,10 +77,9 @@ async def register(request: RegisterRequest):
     # Check if user exists
     if request.username in mock_users:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Username already exists"
+            status_code=status.HTTP_409_CONFLICT, detail="Username already exists"
         )
-    
+
     # Create user (in production, save to database)
     user_id = f"user-{len(mock_users) + 1}"
     mock_users[request.username] = {
@@ -77,16 +87,16 @@ async def register(request: RegisterRequest):
         "username": request.username,
         "email": request.email,
         "hashed_password": pwd_context.hash(request.password),
-        "created_at": "2024-01-01T00:00:00Z"
+        "created_at": "2024-01-01T00:00:00Z",
     }
-    
+
     logger.info(f"Registered new user: {request.username}")
-    
+
     return UserResponse(
         id=user_id,
         username=request.username,
         email=request.email,
-        created_at="2024-01-01T00:00:00Z"
+        created_at="2024-01-01T00:00:00Z",
     )
 
 
@@ -94,7 +104,7 @@ async def register(request: RegisterRequest):
     "/login",
     response_model=Token,
     summary="Login",
-    description="Login with username and password"
+    description="Login with username and password",
 )
 async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     """
@@ -106,46 +116,42 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Verify password
     if not pwd_context.verify(form_data.password, user["hashed_password"]):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid username or password",
-            headers={"WWW-Authenticate": "Bearer"}
+            headers={"WWW-Authenticate": "Bearer"},
         )
-    
+
     # Create access token
     access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
     access_token = create_access_token(
         data={
             "sub": user["username"],
             "user_id": user["id"],
-            "permissions": ["ocr:read", "ocr:write", "export:read"]
+            "permissions": ["ocr:read", "ocr:write", "export:read"],
         },
-        expires_delta=access_token_expires
+        expires_delta=access_token_expires,
     )
-    
+
     # Create refresh token
     refresh_token_expires = timedelta(days=settings.REFRESH_TOKEN_EXPIRE_DAYS)
     refresh_token = create_access_token(
-        data={
-            "sub": user["username"],
-            "user_id": user["id"],
-            "type": "refresh"
-        },
-        expires_delta=refresh_token_expires
+        data={"sub": user["username"], "user_id": user["id"], "type": "refresh"},
+        expires_delta=refresh_token_expires,
     )
-    
+
     logger.info(f"User logged in: {form_data.username}")
-    
+
     return Token(
         access_token=access_token,
         token_type="bearer",
         expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-        refresh_token=refresh_token
+        refresh_token=refresh_token,
     )
 
 
@@ -153,7 +159,7 @@ async def login(form_data: OAuth2PasswordRequestForm = Depends()):
     "/refresh",
     response_model=Token,
     summary="Refresh token",
-    description="Get new access token using refresh token"
+    description="Get new access token using refresh token",
 )
 async def refresh_token(request: RefreshRequest):
     """
@@ -170,39 +176,37 @@ async def refresh_token(request: RefreshRequest):
             algorithms=[settings.JWT_ALGORITHM],
             options={"require": ["exp"]},
         )
-        
+
         # Verify it's a refresh token
         if payload.get("type") != "refresh":
             raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid refresh token"
+                status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
             )
-        
+
         # Create new access token
         access_token_expires = timedelta(minutes=settings.ACCESS_TOKEN_EXPIRE_MINUTES)
         access_token = create_access_token(
             data={
                 "sub": payload["sub"],
                 "user_id": payload["user_id"],
-                "permissions": ["ocr:read", "ocr:write", "export:read"]
+                "permissions": ["ocr:read", "ocr:write", "export:read"],
             },
-            expires_delta=access_token_expires
+            expires_delta=access_token_expires,
         )
-        
+
         logger.info(f"Token refreshed for user: {payload['sub']}")
-        
+
         return Token(
             access_token=access_token,
             token_type="bearer",
             expires_in=settings.ACCESS_TOKEN_EXPIRE_MINUTES * 60,
-            refresh_token=request.refresh_token  # Return same refresh token
+            refresh_token=request.refresh_token,  # Return same refresh token
         )
-        
+
     except InvalidTokenError as e:
         logger.warning(f"Invalid refresh token: {e}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid refresh token"
+            status_code=status.HTTP_401_UNAUTHORIZED, detail="Invalid refresh token"
         )
 
 
@@ -210,19 +214,29 @@ async def refresh_token(request: RefreshRequest):
     "/api-key",
     response_model=ApiKey,
     summary="Generate API key",
-    description="Generate a new API key for programmatic access"
+    description="Generate a new API key for programmatic access (authenticated)",
 )
-async def generate_api_key(request: ApiKeyRequest):
+async def generate_api_key(
+    request: ApiKeyRequest,
+    token_data: TokenData = Depends(get_current_token),
+):
+    """Generate a new API key.
+
+    Requires an authenticated caller — previously this endpoint was
+    world-writable because neither the router nor the middleware
+    enforced auth, so anyone on the internet could mint a working key.
     """
-    Generate a new API key.
-    """
-    # Create API key
     api_key = create_api_key(request.name)
-    
+
     # In production, save to database with hashed key
     key_hash = hash_api_key(api_key.key)
-    logger.info(f"Generated API key: {request.name} (hash: {key_hash[:8]}...)")
-    
+    logger.info(
+        "Generated API key '%s' for user %s (hash: %s...)",
+        request.name,
+        token_data.user_id or "unknown",
+        key_hash[:8],
+    )
+
     # Return key (only shown once)
     return api_key
 
@@ -230,15 +244,20 @@ async def generate_api_key(request: ApiKeyRequest):
 @router.post(
     "/logout",
     status_code=status.HTTP_204_NO_CONTENT,
-    summary="Logout",
-    description="Logout and invalidate token"
+    summary="Logout (stateless no-op)",
+    description=(
+        "Tokens are stateless and short-lived (default 30 min). There is "
+        "no server-side revocation today — the client should delete the "
+        "token locally and let it expire. A Redis-backed blocklist can "
+        "be wired in later if the threat model demands it."
+    ),
 )
-async def logout():
+async def logout(token_data: TokenData = Depends(get_current_token)):
+    """Stateless logout.
+
+    Requires an authenticated caller (so unauthenticated probing
+    cannot enumerate this endpoint) but performs no server-side
+    revocation. Returns 204 on success.
     """
-    Logout user.
-    
-    In production, this would invalidate the token by adding it to a blacklist.
-    """
-    # In production, add token to blacklist
-    logger.info("User logged out")
+    logger.info("User logged out (user_id=%s)", token_data.user_id or "unknown")
     return None

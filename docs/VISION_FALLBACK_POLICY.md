@@ -1,8 +1,10 @@
 # Vision API Fallback Policy
 
+> **2026-04-17 update**: MTG-community feedback drove a reversal — `VISION_PRIMARY` now defaults to **false**. EasyOCR + OpenCV is the **primary** OCR path again, and the Vision LLM chain (Gemini 2.5 Flash → Claude Haiku 4.5) is back in its original role as the low-confidence backup. The thresholds below now describe the **default** behaviour, not the legacy one. The Vision-primary fast path (`VISION_PRIMARY=true`) is still available as an opt-in — see [`ARCHITECTURE.md`](./ARCHITECTURE.md).
+
 ## Overview
 
-Screen2Deck uses a two-tier OCR system with EasyOCR as the primary engine and OpenAI Vision API as an optional fallback for challenging images.
+Screen2Deck's default OCR path uses EasyOCR + OpenCV preprocessing as the primary engine and the Vision LLM chain (Gemini → Claude) as a fallback for low-confidence results. Operators can opt into the inverse (Vision-primary with EasyOCR as deep fallback) by setting `VISION_PRIMARY=true`.
 
 ## Fallback Triggers
 

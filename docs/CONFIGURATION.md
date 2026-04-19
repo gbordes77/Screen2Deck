@@ -145,10 +145,15 @@ metadata:
   namespace: screen2deck
 type: Opaque
 stringData:
-  JWT_SECRET_KEY: "your-super-secret-jwt-key-minimum-32-chars"
-  DATABASE_URL: "postgresql://user:pass@postgres:5432/screen2deck"
-  REDIS_PASSWORD: "your-redis-password"
-  OPENAI_API_KEY: "sk-your-openai-api-key"
+  # WARNING: never ship literal secrets in a committed manifest. Inject
+  # at deploy time via `kubectl create secret generic --from-env-file`,
+  # External Secrets Operator, or Sealed Secrets. The placeholders
+  # below must be replaced with values from your secret manager.
+  JWT_SECRET_KEY: "__REPLACE_ME__"   # 32+ chars — rotate quarterly
+  DATABASE_URL: "__REPLACE_ME__"     # postgresql+psycopg://...
+  REDIS_PASSWORD: "__REPLACE_ME__"
+  GEMINI_API_KEY: "__REPLACE_ME__"   # aistudio.google.com free tier
+  ANTHROPIC_API_KEY: ""              # optional, Claude fallback only
 ```
 
 ## Production Configuration Checklist

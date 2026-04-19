@@ -143,18 +143,23 @@ docker-compose -f docker-compose.prod.yml up -d
 docker-compose exec backend alembic upgrade head
 
 # Create initial admin user
-docker-compose exec backend python -c "
+# The password is read from the ADMIN_PASSWORD env var — never hard-code
+# credentials in a deploy command that ends up in shell history or CI
+# logs. Set ADMIN_PASSWORD in your shell before running this block.
+docker-compose exec -e ADMIN_PASSWORD="$ADMIN_PASSWORD" backend python -c "
+import os
 from app.db.database import get_db
 from app.db.models import User
 from app.auth import hash_password
 import asyncio
 
 async def create_admin():
+    password = os.environ['ADMIN_PASSWORD']  # required
     async with get_db() as db:
         admin = User(
             username='admin',
             email='admin@screen2deck.com',
-            hashed_password=hash_password('changeme'),
+            hashed_password=hash_password(password),
             is_admin=True
         )
         db.add(admin)

@@ -96,19 +96,23 @@ lint: ## Lint Python code with ruff
 	@docker compose exec backend ruff check app/
 
 .PHONY: test
-test: unit integration ## Run all tests
+test: unit ## Run all Python unit tests (the only Python tests that still exist post-v2.4.0)
 
 .PHONY: unit
-unit: ## Run unit tests
+unit: ## Run unit tests (tests/unit/ only — integration/ and e2e/ were removed in v2.4.0)
 	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/unit $(PYTEST_ARGS)
 
 .PHONY: integration
-integration: ## Run integration tests
-	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/integration $(PYTEST_ARGS)
+integration: ## (removed in v2.4.0) Use `make smoke` or `make e2e-smoke` instead
+	@echo "tests/integration/ was removed in the v2.4.0 test-honesty pass."
+	@echo "Replacements:"
+	@echo "  - make smoke       → bash end-to-end smoke test"
+	@echo "  - make e2e-smoke   → Playwright happy-path"
+	@echo "  - make exports-goldens → HTTP golden diff against a live API"
+	@exit 2
 
 .PHONY: e2e
-e2e: ## Run E2E tests (Python)
-	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && pytest tests/e2e $(PYTEST_ARGS)
+e2e: e2e-ui ## Alias for e2e-ui (Playwright). Python tests/e2e/ was removed in v2.4.0.
 
 .PHONY: e2e-ui
 e2e-ui: ## Run Playwright E2E tests
@@ -145,6 +149,20 @@ bench-truth: artifacts ## Run independent benchmark for truth metrics
 			--url http://localhost:8080
 	@echo "✅ Truth benchmark saved to reports/truth_bench.json"
 
+.PHONY: bench-ocr-only
+bench-ocr-only: artifacts ## Run OCR-only validation (EasyOCR + OpenCV only, zero AI calls) against validation_set/images
+	@echo "🔍 Running OCR-only validation (AI disabled)..."
+	@echo "   NB: requires the backend to be up with ENABLE_VISION_FALLBACK=false."
+	@echo "   Start it with: ENABLE_VISION_FALLBACK=false docker compose up -d --force-recreate backend"
+	@. .venv/bin/activate 2>/dev/null || python3 -m venv .venv && . .venv/bin/activate && \
+		pip install -q requests && \
+		python tools/ocr_only_bench.py \
+			--images $(VALIDATION_SET) \
+			--truth  $(TRUTH) \
+			--out    $(REPORT)/ocr_only \
+			--url    http://localhost:8080
+	@echo "✅ OCR-only report saved to $(REPORT)/ocr_only/validation.{json,md}"
+
 .PHONY: bench-compare
 bench-compare: ## Compare official vs truth benchmarks
 	@echo "📊 Comparing benchmarks..."
@@ -174,8 +192,12 @@ dev: ## Start development environment
 
 .PHONY: ci-health
 ci-health: ## Run CI health check locally
-	@echo "JWT_SECRET_KEY=ci" > backend/.env.docker
-	@echo -e "DATABASE_URL=postgresql+psycopg://postgres:postgres@postgres:5432/s2d\nREDIS_URL=redis://redis:6379/0\nOCR_MIN_CONF=0.62\nALWAYS_VERIFY_SCRYFALL=true\nFEATURE_TELEMETRY=false\nOTEL_SDK_DISABLED=true" >> backend/.env.docker
+	@# POSTGRES_PASSWORD defaults to a non-default string so the secrets-scan
+	@# CI guard (security-checks.yml) stays green. Override via env var for
+	@# reproducibility across runs: `POSTGRES_PASSWORD=... make ci-health`.
+	@PW="$${POSTGRES_PASSWORD:-ci-$$(date +%s)-s2d}"; \
+	echo "JWT_SECRET_KEY=$${JWT_SECRET_KEY:-ci-test-secret-at-least-32-bytes-long}" > backend/.env.docker; \
+	printf 'DATABASE_URL=postgresql+psycopg://s2d_ci:%s@postgres:5432/s2d\nREDIS_URL=redis://redis:6379/0\nOCR_MIN_CONF=0.62\nALWAYS_VERIFY_SCRYFALL=true\nFEATURE_TELEMETRY=false\nOTEL_SDK_DISABLED=true\n' "$$PW" >> backend/.env.docker
 	@docker compose --profile core up -d --build redis postgres backend
 	@for i in {1..40}; do curl -sf http://localhost:8080/health && echo " ✅ Health check passed!" && exit 0; sleep 3; done; echo " ❌ Health check failed!" && exit 1
 
